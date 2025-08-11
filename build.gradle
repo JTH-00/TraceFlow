@@ -1,0 +1,32 @@
+plugins {
+	id 'java'
+	id 'java-gradle-plugin'
+}
+
+group = 'com.example'
+version = '0.0.1'
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation gradleApi()
+
+	// ByteBuddy for instrumentation
+	implementation 'net.bytebuddy:byte-buddy:1.14.9'
+	implementation 'net.bytebuddy:byte-buddy-agent:1.14.9'
+
+	// Spring AOP (optional)
+	implementation 'org.springframework:spring-context:6.1.5'
+	implementation 'org.springframework:spring-aop:6.1.5'
+}
+
+gradlePlugin {
+	plugins {
+		traceFlow {
+			id = 'com.example.traceflow'
+			implementationClass = 'com.example.traceflow.TraceFlowPlugin'
+		}
+	}
+}
