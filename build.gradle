@@ -18,8 +18,8 @@ dependencies {
 	implementation 'net.bytebuddy:byte-buddy-agent:1.14.9'
 
 	// Spring AOP (optional)
-	implementation 'org.springframework:spring-context:6.1.5'
-	implementation 'org.springframework:spring-aop:6.1.5'
+	implementation 'org.springframework:spring-context:6.2.7'
+	implementation 'org.springframework:spring-aop:6.2.7'
 }
 
 gradlePlugin {
