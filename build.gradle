@@ -21,9 +21,11 @@ dependencies {
 	implementation 'net.bytebuddy:byte-buddy:1.14.9'
 	implementation 'net.bytebuddy:byte-buddy-agent:1.14.9'
 
-	// Spring AOP (optional)
+	// Spring Context
 	implementation 'org.springframework:spring-context:6.2.7'
-	implementation 'org.springframework:spring-aop:6.2.7'
+
+	// jakarta EE
+	implementation 'jakarta.annotation:jakarta.annotation-api:2.1.1'
 
 	// Jetty
 	implementation 'org.eclipse.jetty:jetty-server:12.0.12'
