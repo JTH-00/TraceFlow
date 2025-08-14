@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <title>TraceFlow UI</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body { display: flex; font-family: sans-serif; }
+        #sidebar { width: 200px; border-right: 1px solid #ccc; padding: 10px; }
+        #graph { flex: 1; padding: 10px; }
+        .node circle { fill: steelblue; cursor: pointer; }
+        .node text { font-size: 12px; }
+        .link { fill: none; stroke: #ccc; stroke-width: 2px; }
+    </style>
+</head>
+<body>
+
+<div id="sidebar">
+    <h3>히스토리</h3>
+    <ul id="session-list"></ul>
+</div>
+
+<div id="graph">
+    <svg width="800" height="600"></svg>
+</div>
+
+<script>
+    let selectedSession = null;
+    let allData = [];
+
+    async function fetchTrace() {
+      const res = await fetch("/trace"); // 백엔드 엔드포인트
+      return await res.json();
+    }
+
+    function buildTree(entries) {
+      const map = {};
+      entries.forEach(e => map[e.id] = {...e, children: []});
+      let root = null;
+      entries.forEach(e => {
+        if (e.parentId) {
+          map[e.parentId]?.children.push(map[e.id]);
+        } else {
+          root = map[e.id];
+        }
+      });
+      return root;
+    }
+
+    function renderSessionList(sessions) {
+      const sessionList = document.getElementById("session-list");
+      sessionList.innerHTML = "";
+      sessions.forEach(sid => {
+        const li = document.createElement("li");
+        li.textContent = sid;
+        li.style.cursor = "pointer";
+        if (sid === selectedSession) {
+          li.style.fontWeight = "bold";
+        }
+        li.onclick = () => {
+          selectedSession = sid;
+          renderGraphForSession();
+        };
+        sessionList.appendChild(li);
+      });
+    }
+
+    function renderGraph(rootData) {
+      const svg = d3.select("svg");
+      svg.selectAll("*").remove();
+
+      if (!rootData) return;
+
+      const treeLayout = d3.tree().size([500, 400]);
+      const root = d3.hierarchy(rootData);
+      treeLayout(root);
+
+      svg.append("g")
+        .selectAll("line")
+        .data(root.links())
+        .join("line")
+        .attr("class", "link")
+        .attr("x1", d => d.source.x + 100)
+        .attr("y1", d => d.source.y + 50)
+        .attr("x2", d => d.target.x + 100)
+        .attr("y2", d => d.target.y + 50);
+
+      const node = svg.append("g")
+        .selectAll("g")
+        .data(root.descendants())
+        .join("g")
+        .attr("class", "node")
+        .attr("transform", d => `translate(${d.x + 100},${d.y + 50})`);
+
+      node.append("circle")
+        .attr("r", 20)
+        .style("fill", d => d.data.success ? "steelblue" : "tomato");
+
+      node.append("text")
+        .attr("dy", -30)
+        .attr("text-anchor", "middle")
+        .text(d => `${d.data.className}.${d.data.methodName}`);
+    }
+
+    function renderGraphForSession() {
+      if (!selectedSession) return;
+      const sessionEntries = allData.filter(e => e.sessionId === selectedSession);
+      renderGraph(buildTree(sessionEntries));
+    }
+
+    async function updateData() {
+      allData = await fetchTrace();
+      const sessions = Array.from(new Set(allData.map(e => e.sessionId)));
+
+      // 새로운 세션 생기면 사이드바 업데이트
+      renderSessionList(sessions);
+
+      // 세션이 아직 선택 안됐으면 첫 번째 선택
+      if (!selectedSession && sessions.length > 0) {
+        selectedSession = sessions[0];
+      }
+
+      renderGraphForSession();
+    }
+
+    async function init() {
+      await updateData();
+      setInterval(updateData, 2000); // 2초마다 자동 갱신
+    }
+
+    init();
+</script>
+</body>
+</html>

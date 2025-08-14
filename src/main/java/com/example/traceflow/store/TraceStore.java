@@ -1,17 +1,19 @@
 package com.example.traceflow.store;
 
+import com.example.traceflow.vo.TraceEntry;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 public class TraceStore {
-    private static final List<String> logs = Collections.synchronizedList(new ArrayList<>());
+    private static final List<TraceEntry> traces = Collections.synchronizedList(new ArrayList<>());
 
-    public static void addLog(String log) {
-        logs.add(log);
+    public static void addTraces(List<TraceEntry> entries) {
+        traces.addAll(entries);
     }
 
-    public static List<String> getLogs() {
-        return new ArrayList<>(logs);
+    public static List<TraceEntry> getTraces() {
+        return new ArrayList<>(traces);
     }
 }

@@ -12,8 +12,7 @@ public class TraceFlowServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         resp.setContentType("application/json; charset=UTF-8");
-        String json = new Gson().toJson(TraceStore.getLogs());
+        String json = new Gson().toJson(TraceStore.getTraces());
         resp.getWriter().write(json);
-        resp.getWriter().println("TraceFlow Web UI is running");
     }
 }

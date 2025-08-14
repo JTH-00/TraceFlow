@@ -1,33 +1,64 @@
 package com.example.traceflow.interceptor;
 
-import com.example.traceflow.store.TraceStore;
+import com.example.traceflow.context.TraceContext;
+import com.example.traceflow.vo.TraceEntry;
+import net.bytebuddy.implementation.bind.annotation.AllArguments;
+import net.bytebuddy.implementation.bind.annotation.Origin;
+import net.bytebuddy.implementation.bind.annotation.SuperCall;
+import org.springframework.scheduling.annotation.Async;
 
 import java.lang.reflect.Method;
+import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 
 public class TraceFlowInterceptor {
+    public static Object intercept(@Origin Method method,
+                                   @AllArguments Object[] args,
+                                   @SuperCall Callable<?> callable) throws Exception {
 
-    public static Object intercept(@net.bytebuddy.implementation.bind.annotation.Origin Method method,
-                                   @net.bytebuddy.implementation.bind.annotation.AllArguments Object[] args,
-                                   @net.bytebuddy.implementation.bind.annotation.SuperCall Callable<?> callable) throws Exception {
+        TraceContext.pushCall(method.getName());
+
         long start = System.currentTimeMillis();
-        String logStart = "▶ " + method.getDeclaringClass().getName() + "." + method.getName() + "() 호출";
-        TraceStore.addLog(logStart);
-        System.out.println("[TraceFlow] " + logStart);
+        boolean async = false;
+        boolean error = false;
+        String errorType = null;
+        String errorMessage = null;
+        Object result = null;
 
         try {
-            Object result = callable.call();
-            long elapsed = System.currentTimeMillis() - start;
-            String logSuccess = "✔ " + method.getDeclaringClass().getName() + "." + method.getName() + "() 완료 (" + elapsed + "ms)";
-            TraceStore.addLog(logSuccess);
-            System.out.println("[TraceFlow] " + logSuccess);
-            return result;
+            result = callable.call();
+
+            // async check
+            if (result instanceof CompletableFuture<?> || method.isAnnotationPresent(Async.class)) {
+                async = true;
+            }
+
         } catch (Throwable t) {
-            long elapsed = System.currentTimeMillis() - start;
-            String logError = "❌ " + method.getDeclaringClass().getName() + "." + method.getName() + "() 실패 (" + elapsed + "ms) : " + t.getMessage();
-            TraceStore.addLog(logError);
-            System.err.println("[TraceFlow] " + logError);
+            error = true;
+            errorType = t.getClass().getSimpleName();
+            errorMessage = t.getMessage();
             throw t;
+        } finally {
+            long duration = System.currentTimeMillis() - start;
+
+            TraceEntry entry = new TraceEntry(
+                UUID.randomUUID().toString(),
+                TraceContext.peekCall(),
+                method.getDeclaringClass().getName(),
+                method.getName(),
+                method.getReturnType().getSimpleName(),
+                start,
+                duration,
+                async,
+                error,
+                errorType,
+                errorMessage
+            );
+
+            TraceContext.addEntry(entry);
+            TraceContext.popCall();
         }
+        return result;
     }
 }
