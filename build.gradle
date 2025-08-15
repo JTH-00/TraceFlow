@@ -27,9 +27,9 @@ dependencies {
 	// jakarta EE
 	implementation 'jakarta.annotation:jakarta.annotation-api:2.1.1'
 
-	// Jetty
-	implementation 'org.eclipse.jetty:jetty-server:12.0.12'
-	implementation 'org.eclipse.jetty.ee10:jetty-ee10-servlet:12.0.12'
+	// Jetty - compileOnly로 설정하여 메인 프로젝트에 전파되지 않도록 함
+	compileOnly 'org.eclipse.jetty:jetty-server:12.0.12'
+	compileOnly 'org.eclipse.jetty.ee10:jetty-ee10-servlet:12.0.12'
 }
 
 gradlePlugin {
