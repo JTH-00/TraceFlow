@@ -12,4 +12,5 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Import(TraceFlowAutoConfig.class)
 public @interface EnableTraceFlow {
+    int port() default 8081;
 }

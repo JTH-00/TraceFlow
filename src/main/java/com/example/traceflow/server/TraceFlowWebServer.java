@@ -10,9 +10,8 @@ import java.io.InputStream;
 import java.util.Properties;
 
 public class TraceFlowWebServer {
-    public static void start() {
+    public static void start(int port) {
         try {
-            int port = loadPortFromProperties();
             Server server = new Server(port);
 
             // ServletContextHandler 생성
@@ -30,25 +29,6 @@ public class TraceFlowWebServer {
             server.join();
         } catch (Exception e) {
             e.printStackTrace();
-        }
-    }
-
-    private static int loadPortFromProperties() {
-        Properties props = new Properties();
-        try (InputStream input = TraceFlowWebServer.class
-                .getClassLoader()
-                .getResourceAsStream("META-INF/gradle-plugins/application.properties")) {
-
-            if (input == null) {
-                throw new RuntimeException("application.properties not found");
-            }
-
-            props.load(input);
-            String portStr = props.getProperty("traceflow.web.port", "8081");
-            return Integer.parseInt(portStr);
-
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to load application.properties", e);
         }
     }
 }
