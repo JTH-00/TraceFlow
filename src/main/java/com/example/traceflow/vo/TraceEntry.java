@@ -3,6 +3,7 @@ package com.example.traceflow.vo;
 public class TraceEntry {
     private final String id;
     private final String parentId;
+    private final String sessionId;
     private final String className;
     private final String methodName;
     private final String returnType;
@@ -13,10 +14,11 @@ public class TraceEntry {
     private final String errorType;
     private final String errorMessage;
 
-    public TraceEntry(String id, String parentId, String className, String methodName, String returnType,
+    public TraceEntry(String id, String parentId, String sessionId, String className, String methodName, String returnType,
                       long startTime, long duration, boolean async, boolean error, String errorType, String errorMessage) {
         this.id = id;
         this.parentId = parentId;
+        this.sessionId = sessionId;
         this.className = className;
         this.methodName = methodName;
         this.returnType = returnType;
@@ -34,6 +36,10 @@ public class TraceEntry {
 
     public String getParentId() {
         return parentId;
+    }
+
+    public String getSessionId() {
+        return sessionId;
     }
 
     public String getClassName() {

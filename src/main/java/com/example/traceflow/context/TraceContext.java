@@ -26,13 +26,15 @@ public class TraceContext {
         return callStack.get().peek();
     }
 
+    public static boolean isStackEmpty() { return callStack.get().isEmpty(); }
+
     public static void addEntry(TraceEntry entry) { currentSessionEntries.get().add(entry); }
     public static List<TraceEntry> getCurrentSessionEntries() { return currentSessionEntries.get(); }
 
     public static void flush() {
         TraceStore.addTraces(currentSessionEntries.get());
-        currentSessionEntries.remove();
-        callStack.remove();
-        sessionId.remove();
+        currentSessionEntries.set(new ArrayList<>());
+        callStack.set(new ArrayDeque<>());
+        sessionId.set(UUID.randomUUID().toString());
     }
 }

@@ -17,7 +17,10 @@ public class TraceFlowInterceptor {
                                    @AllArguments Object[] args,
                                    @SuperCall Callable<?> callable) throws Exception {
 
-        TraceContext.pushCall(method.getName());
+        // 부모 ID는 push 전에 캡처
+        String parentId = TraceContext.peekCall();
+        String currentId = UUID.randomUUID().toString();
+        TraceContext.pushCall(currentId);
 
         long start = System.currentTimeMillis();
         boolean async = false;
@@ -43,8 +46,9 @@ public class TraceFlowInterceptor {
             long duration = System.currentTimeMillis() - start;
 
             TraceEntry entry = new TraceEntry(
-                UUID.randomUUID().toString(),
-                TraceContext.peekCall(),
+                currentId,
+                parentId,
+                TraceContext.getSessionId(),
                 method.getDeclaringClass().getName(),
                 method.getName(),
                 method.getReturnType().getSimpleName(),
@@ -58,6 +62,11 @@ public class TraceFlowInterceptor {
 
             TraceContext.addEntry(entry);
             TraceContext.popCall();
+
+            // 최상위 호출이 끝났다면 세션을 flush하여 저장소로 이동
+            if (TraceContext.isStackEmpty()) {
+                TraceContext.flush();
+            }
         }
         return result;
     }
