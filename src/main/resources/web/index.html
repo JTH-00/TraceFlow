@@ -29,7 +29,7 @@
     let allData = [];
 
     async function fetchTrace() {
-      const res = await fetch("/trace"); // 백엔드 엔드포인트
+      const res = await fetch("/logs"); // 백엔드 엔드포인트
       return await res.json();
     }
 

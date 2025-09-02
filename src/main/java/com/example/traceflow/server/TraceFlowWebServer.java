@@ -23,7 +23,6 @@ public class TraceFlowWebServer {
             context.addServlet(FrontPageServlet.class, "/");
             context.addServlet(TraceFlowServlet.class, "/logs");
 
-
             server.start();
             System.out.println("[TraceFlowWebServer] Started on port " + port);
             server.join();

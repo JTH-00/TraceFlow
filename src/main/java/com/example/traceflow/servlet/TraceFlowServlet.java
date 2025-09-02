@@ -4,7 +4,8 @@ import com.example.traceflow.store.TraceStore;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.gradle.internal.impldep.com.google.gson.Gson;
+import com.google.gson.Gson;
+
 
 import java.io.IOException;
 
