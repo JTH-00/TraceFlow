@@ -1,0 +1,43 @@
+plugins {
+	id 'java'
+	id 'maven-publish'
+}
+
+dependencies {
+	// Agent 핵심 의존성
+	implementation 'net.bytebuddy:byte-buddy:1.14.9'
+	implementation 'net.bytebuddy:byte-buddy-agent:1.14.9'
+	implementation 'com.google.code.gson:gson:2.10.1'
+	implementation 'jakarta.annotation:jakarta.annotation-api:2.1.1'
+
+	// Jetty (선택적)
+	compileOnly 'org.eclipse.jetty:jetty-server:12.0.12'
+	compileOnly 'org.eclipse.jetty.ee10:jetty-ee10-servlet:12.0.12'
+
+	// Spring (선택적)
+	compileOnly 'org.springframework:spring-context:6.1.2'
+}
+
+jar {
+	archiveBaseName = 'traceflow-agent'
+
+	manifest {
+		attributes(
+				'Premain-Class': 'com.example.traceflow.agent.TraceFlowTransformer',
+				'Agent-Class': 'com.example.traceflow.agent.TraceFlowTransformer',
+				'Can-Redefine-Classes': 'true',
+				'Can-Retransform-Classes': 'true'
+		)
+	}
+
+	// Fat JAR 생성
+	from {
+		configurations.runtimeClasspath.findAll {
+			it.name.contains("byte-buddy") ||
+					it.name.contains("gson") ||
+					it.name.contains("jakarta")
+		}.collect { zipTree(it) }
+	}
+
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}

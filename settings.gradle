@@ -1,1 +1,3 @@
-rootProject.name = "traceflow-plugin"
+rootProject.name = 'traceflow'
+include 'traceflow-agent'
+include 'traceflow-plugin'

@@ -1,45 +1,18 @@
 plugins {
 	id 'java'
-	id 'java-gradle-plugin'
 }
 
-tasks.processResources {
-	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-}
+allprojects {
+	group = 'com.example.traceflow'
+	version = '1.0.0'
 
-group = 'com.example'
-version = '0.0.1'
-
-repositories {
-	mavenCentral()
-}
-
-dependencies {
-	implementation gradleApi()
-
-	// ByteBuddy for instrumentation
-	implementation 'net.bytebuddy:byte-buddy:1.14.9'
-	implementation 'net.bytebuddy:byte-buddy-agent:1.14.9'
-
-	// Spring Context
-	implementation 'org.springframework:spring-context:6.2.7'
-
-	// jakarta EE
-	implementation 'jakarta.annotation:jakarta.annotation-api:2.1.1'
-
-	//Gson
-	implementation 'com.google.code.gson:gson:2.10.1'
-
-	// Jetty - compileOnly로 설정하여 메인 프로젝트에 전파되지 않도록 함
-	compileOnly 'org.eclipse.jetty:jetty-server:12.0.12'
-	compileOnly 'org.eclipse.jetty.ee10:jetty-ee10-servlet:12.0.12'
-}
-
-gradlePlugin {
-	plugins {
-		traceFlow {
-			id = 'com.example.traceflow'
-			implementationClass = 'com.example.traceflow.TraceFlowPlugin'
-		}
+	repositories {
+		mavenCentral()
 	}
+}
+
+subprojects {
+	apply plugin: 'java'
+	sourceCompatibility = '17'
+	targetCompatibility = '17'
 }
