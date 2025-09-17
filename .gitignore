@@ -46,7 +46,4 @@ bin/
 .DS_Store
 
 ### META-INF ###
-src/main/resources/META-INF/*.SF
-src/main/resources/META-INF/*.DSA
-src/main/resources/META-INF/*.RSA
-src/main/resources/META-INF/*.properties
+**/src/main/resources/META-INF/
