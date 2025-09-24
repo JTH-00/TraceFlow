@@ -78,27 +78,4 @@ public class TraceFlowPlugin implements Plugin<Project> {
             }
         });
     }
-
-    static class TraceFlowExtension {
-        private boolean autoInject = true;
-        private int webServerPort = 8081;
-        private boolean includeTests = false;
-        private boolean debugMode = false;
-        private String agentPath;
-
-        public boolean isAutoInject() { return autoInject; }
-        public void setAutoInject(boolean autoInject) { this.autoInject = autoInject; }
-
-        public int getWebServerPort() { return webServerPort; }
-        public void setWebServerPort(int port) { this.webServerPort = port; }
-
-        public boolean isIncludeTests() { return includeTests; }
-        public void setIncludeTests(boolean includeTests) { this.includeTests = includeTests; }
-
-        public boolean isDebugMode() { return debugMode; }
-        public void setDebugMode(boolean debugMode) { this.debugMode = debugMode; }
-
-        public String getAgentPath() { return agentPath; }
-        public void setAgentPath(String path) { this.agentPath = path; }
-    }
 }
