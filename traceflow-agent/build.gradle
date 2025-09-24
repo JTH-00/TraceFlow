@@ -8,14 +8,10 @@ dependencies {
 	implementation 'net.bytebuddy:byte-buddy:1.14.9'
 	implementation 'net.bytebuddy:byte-buddy-agent:1.14.9'
 	implementation 'com.google.code.gson:gson:2.10.1'
-	implementation 'jakarta.annotation:jakarta.annotation-api:2.1.1'
 
 	// Jetty (선택적)
 	compileOnly 'org.eclipse.jetty:jetty-server:12.0.12'
 	compileOnly 'org.eclipse.jetty.ee10:jetty-ee10-servlet:12.0.12'
-
-	// Spring (선택적)
-	compileOnly 'org.springframework:spring-context:6.1.2'
 }
 
 jar {

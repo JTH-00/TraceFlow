@@ -3,7 +3,6 @@ package com.example.traceflow;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.tasks.JavaExec;
-import org.gradle.api.tasks.testing.Test;
 
 import java.io.File;
 
@@ -27,35 +26,40 @@ public class TraceFlowPlugin implements Plugin<Project> {
                 return;
             }
 
-            // JAR 파일 경로 계산
-            String agentJarName = project.getName() + "-" + project.getVersion() + ".jar";
-            File agentJar = project.getBuildDir().toPath()
-                .resolve("libs")
-                .resolve(agentJarName)
-                .toFile();
+            if (ext.getAgentPath() == null || ext.getAgentPath().isEmpty()) {
+                project.getLogger().warn("[TraceFlow] agentPath not specified in traceFlow configuration");
+                return;
+            }
+
+            File agentJar = new File(ext.getAgentPath());
 
             // JavaExec 태스크에 agent 주입
             project.getTasks().withType(JavaExec.class).configureEach(task -> {
-                // run 태스크만 처리 (또는 특정 태스크 필터링)
-                if (task.getName().equals("run") || task.getName().contains("Run")) {
+                // bootRun 추가
+                if (task.getName().equals("run") ||
+                    task.getName().equals("bootRun") ||  // 추가
+                    task.getName().contains("Run")) {
                     configureJavaAgent(project, task, agentJar, ext);
                 }
             });
-
         });
     }
 
     private void configureJavaAgent(Project project, JavaExec task, File agentJar, TraceFlowExtension ext) {
-        task.dependsOn("jar");
-
         task.doFirst(t -> {
-            if (!agentJar.exists()) {
-                project.getLogger().warn("[TraceFlow] Agent JAR not found: " + agentJar.getAbsolutePath());
+            File actualAgentJar = agentJar;
+            if (ext.getAgentPath() != null && !ext.getAgentPath().isEmpty()) {
+                actualAgentJar = new File(ext.getAgentPath());
+            }
+
+            if (!actualAgentJar.exists()) {
+                project.getLogger().error("[TraceFlow] Agent JAR not found: " + actualAgentJar.getAbsolutePath());
+                project.getLogger().error("[TraceFlow] Please specify agentPath in traceFlow configuration");
                 return;
             }
 
             JavaExec execTask = (JavaExec) t;
-            String agentArg = "-javaagent:" + agentJar.getAbsolutePath();
+            String agentArg = "-javaagent:" + actualAgentJar.getAbsolutePath();
 
             // 웹서버 포트 설정
             if (ext.getWebServerPort() != 8081) {
@@ -65,7 +69,7 @@ public class TraceFlowPlugin implements Plugin<Project> {
             // 중복 추가 방지
             if (!execTask.getJvmArgs().contains(agentArg)) {
                 execTask.getJvmArgs().add(agentArg);
-                project.getLogger().lifecycle("[TraceFlow] Injected agent into task '" + task.getName() + "': " + agentArg);
+                project.getLogger().lifecycle("[TraceFlow] Injected agent: " + agentArg);
             }
 
             // 추가 JVM 옵션 (디버깅용)
@@ -80,6 +84,7 @@ public class TraceFlowPlugin implements Plugin<Project> {
         private int webServerPort = 8081;
         private boolean includeTests = false;
         private boolean debugMode = false;
+        private String agentPath;
 
         public boolean isAutoInject() { return autoInject; }
         public void setAutoInject(boolean autoInject) { this.autoInject = autoInject; }
@@ -92,5 +97,8 @@ public class TraceFlowPlugin implements Plugin<Project> {
 
         public boolean isDebugMode() { return debugMode; }
         public void setDebugMode(boolean debugMode) { this.debugMode = debugMode; }
+
+        public String getAgentPath() { return agentPath; }
+        public void setAgentPath(String path) { this.agentPath = path; }
     }
 }

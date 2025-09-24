@@ -5,10 +5,6 @@ plugins {
 
 dependencies {
 	implementation gradleApi()
-
-	// Spring 지원용 (선택적)
-	compileOnly 'org.springframework:spring-context:6.1.2'
-	compileOnly 'jakarta.annotation:jakarta.annotation-api:2.1.1'
 }
 
 gradlePlugin {
