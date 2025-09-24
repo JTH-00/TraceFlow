@@ -5,6 +5,7 @@ build/
 !**/src/test/**/build/
 
 ### IntelliJ IDEA ###
+.idea/
 ../.idea/
 .idea/modules.xml
 .idea/jarRepositories.xml
@@ -44,6 +45,9 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+
+### Gradle ###
+.gradle/
 
 ### META-INF ###
 **/src/main/resources/META-INF/
