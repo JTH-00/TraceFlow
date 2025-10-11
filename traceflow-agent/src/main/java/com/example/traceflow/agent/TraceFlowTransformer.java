@@ -20,6 +20,8 @@ public class TraceFlowTransformer {
     public static void premain(String agentArgs, Instrumentation inst) {
         System.out.println("[TraceFlow Agent] Starting instrumentation...");
 
+        startWebServer(agentArgs);
+
         // 1. 먼저 @TraceFlow가 붙은 진입점 메서드만 변환
         installEntryPointTransformer(inst);
 
@@ -49,15 +51,19 @@ public class TraceFlowTransformer {
             .with(AgentBuilder.RedefinitionStrategy.RETRANSFORMATION)
             .ignore(getIgnoreMatcher())
             .type(
-                // 사용자 애플리케이션 패키지 (설정 가능하도록)
-                nameStartsWith("com.")
+                // wip : test
+/*                nameStartsWith("com.")
                     .or(nameStartsWith("org."))
                     .and(not(nameStartsWith("org.springframework")))
                     .and(not(nameStartsWith("org.apache")))
                     .and(not(nameStartsWith("org.eclipse")))
                     .and(not(nameStartsWith("com.example.traceflow")))
                     .and(not(nameStartsWith("com.sun")))
-                    .and(not(nameStartsWith("com.google")))
+                    .and(not(nameStartsWith("com.google")))*/
+                // 사용자 애플리케이션 패키지 (설정 가능하도록)
+                nameStartsWith("com.example.musing")  // 사용자 코드만
+                    .and(not(nameContains("$$")))  // 프록시 제외
+                    .and(not(nameContains("CGLIB")))  // CGLIB 제외
             )
             .transform(new UniversalMethodTransformer())
             .installOn(inst);
@@ -67,12 +73,14 @@ public class TraceFlowTransformer {
         return nameStartsWith("net.bytebuddy")
             .or(nameStartsWith("java."))
             .or(nameStartsWith("javax."))
+            .or(nameStartsWith("jakarta."))  // 추가
             .or(nameStartsWith("sun."))
             .or(nameStartsWith("jdk."))
-            .or(nameStartsWith("com.example.traceflow.interceptor"))
-            .or(nameStartsWith("com.example.traceflow.context"))
-            .or(nameStartsWith("com.example.traceflow.vo"))
-            .or(nameStartsWith("com.example.traceflow.store"));
+            .or(nameStartsWith("org.springframework"))  // Spring 전체 제외
+            .or(nameStartsWith("org.hibernate"))  // Hibernate 제외
+            .or(nameStartsWith("com.mysql"))  // MySQL 드라이버 제외
+            .or(nameStartsWith("com.zaxxer"))  // HikariCP 제외
+            .or(nameStartsWith("com.example.traceflow"));
     }
 
     // @TraceFlow 진입점 변환기

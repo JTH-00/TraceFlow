@@ -5,6 +5,9 @@ import org.gradle.api.Project;
 import org.gradle.api.tasks.JavaExec;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 
 public class TraceFlowPlugin implements Plugin<Project> {
     @Override
@@ -66,16 +69,20 @@ public class TraceFlowPlugin implements Plugin<Project> {
                 agentArg += "=" + ext.getWebServerPort();
             }
 
+            List<String> newJvmArgs = new ArrayList<>(Objects.requireNonNull(execTask.getJvmArgs()));
+
             // 중복 추가 방지
-            if (!execTask.getJvmArgs().contains(agentArg)) {
-                execTask.getJvmArgs().add(agentArg);
+            if (!newJvmArgs.contains(agentArg)) {
+                newJvmArgs.add(agentArg);
                 project.getLogger().lifecycle("[TraceFlow] Injected agent: " + agentArg);
             }
 
             // 추가 JVM 옵션 (디버깅용)
             if (ext.isDebugMode()) {
-                execTask.getJvmArgs().add("-Dtraceflow.debug=true");
+                newJvmArgs.add("-Dtraceflow.debug=true");
             }
+
+            execTask.setJvmArgs(newJvmArgs);
         });
     }
 }
