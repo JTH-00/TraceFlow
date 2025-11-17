@@ -5,102 +5,275 @@
     <title>TraceFlow UI</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
-        body { display: flex; font-family: sans-serif; margin: 0; }
-        #sidebar {
-            width: 250px;
-            border-right: 1px solid #ccc;
-            padding: 20px;
-            background: #f5f5f5;
-            overflow-y: auto;
-            max-height: 100vh;
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            display: flex;
+            font-family: -apple-system, sans-serif;
+            height: 100vh;
         }
+
+        #sidebar {
+            width: 280px;
+            border-right: 1px solid #ddd;
+            padding: 20px;
+            background: #f8f9fa;
+            overflow-y: auto;
+        }
+
+        #sidebar h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+        }
+
+        .controls button {
+            padding: 8px 16px;
+            margin-right: 10px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .controls button:hover {
+            background: #0056b3;
+        }
+
+        .session-item {
+            padding: 12px;
+            margin: 8px 0;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            border: 1px solid #dee2e6;
+            transition: all 0.2s;
+        }
+
+        .session-item:hover {
+            border-color: #007bff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .session-item.active {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+
+        .session-item.new {
+            border-left: 4px solid #28a745;
+        }
+
+        .session-info {
+            font-size: 12px;
+            margin-top: 4px;
+            opacity: 0.7;
+        }
+
         #graph {
             flex: 1;
             padding: 20px;
             overflow: auto;
         }
-        .session-item {
+
+        #status {
             padding: 10px;
-            margin: 5px 0;
-            background: white;
-            border-radius: 5px;
-            cursor: pointer;
-            border: 1px solid #ddd;
+            background: #e7f3ff;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 14px;
         }
-        .session-item:hover {
-            background: #e8e8e8;
-        }
-        .session-item.active {
-            background: #4CAF50;
-            color: white;
-        }
+
         .node circle {
-            fill: #4CAF50;
-            cursor: pointer;
+            fill: #28a745;
             stroke: white;
             stroke-width: 2px;
         }
+
         .node.error circle {
-            fill: #f44336;
+            fill: #dc3545;
         }
+
         .node text {
             font-size: 11px;
-            font-family: monospace;
+            font-family: 'Monaco', monospace;
         }
+
         .link {
             fill: none;
-            stroke: #999;
+            stroke: #adb5bd;
             stroke-width: 1.5px;
         }
-        h3 {
-            margin-top: 0;
-            color: #333;
+
+        .empty-state {
+            text-align: center;
+            padding: 50px;
+            color: #6c757d;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 6px;
+            background: #dc3545;
+            color: white;
+            border-radius: 10px;
+            font-size: 11px;
+            margin-left: 5px;
         }
     </style>
 </head>
 <body>
 
 <div id="sidebar">
-    <h3>추적 세션 목록</h3>
+    <h3>TraceFlow Monitor</h3>
+
+    <div class="controls">
+        <button onclick="checkNewSessions()">새로고침</button>
+        <button onclick="toggleAutoRefresh()" id="autoBtn">자동: OFF</button>
+    </div>
+
+    <div id="status">대기 중...</div>
+
+    <h4>세션 목록 <span id="sessionCount" class="badge">0</span></h4>
     <div id="session-list"></div>
 </div>
 
 <div id="graph">
     <h3>호출 트리</h3>
-    <svg width="900" height="600"></svg>
+    <svg width="1000" height="700"></svg>
 </div>
 
 <script>
     let selectedSession = null;
-    let allData = [];
+    let loadedSessions = new Map();  // 세션ID -> 데이터
+    let autoRefresh = false;
+    let autoRefreshTimer = null;
 
-    async function fetchTrace() {
+    // 새 세션 확인 (중복 로드 방지)
+    async function checkNewSessions() {
+        updateStatus("새 세션 확인 중...");
+
         try {
-            const res = await fetch("/logs");
+            const res = await fetch("/logs?action=new-sessions");
             const data = await res.json();
-            console.log("Fetched data:", data);
-            return data;
+
+            if (data.hasNew) {
+                updateStatus(`${data.newSessions.size}개의 새 세션 발견!`);
+
+                // 새 세션들만 로드
+                for (const sessionId of data.newSessions) {
+                    await loadSession(sessionId, true);
+                }
+
+                renderSessionList();
+
+                // 자동으로 최신 세션 선택
+                if (data.newSessions.size > 0) {
+                    const latestSession = Array.from(data.newSessions)[0];
+                    selectSession(latestSession);
+                }
+            } else {
+                updateStatus("새 세션 없음");
+            }
         } catch (error) {
-            console.error("Error fetching traces:", error);
-            return [];
+            console.error("Error checking sessions:", error);
+            updateStatus("오류 발생");
         }
     }
 
+    // 특정 세션 로드 (1회만)
+    async function loadSession(sessionId, isNew = false) {
+        if (loadedSessions.has(sessionId)) {
+            return loadedSessions.get(sessionId);
+        }
+
+        try {
+            const res = await fetch(`/logs?sessionId=${sessionId}`);
+            const data = await res.json();
+
+            loadedSessions.set(sessionId, {
+                id: sessionId,
+                data: data,
+                isNew: isNew,
+                timestamp: new Date().toLocaleTimeString()
+            });
+
+            return data;
+        } catch (error) {
+            console.error(`Error loading session ${sessionId}:`, error);
+            return null;
+        }
+    }
+
+    // 세션 목록 렌더링
+    function renderSessionList() {
+        const container = document.getElementById("session-list");
+        container.innerHTML = "";
+
+        if (loadedSessions.size === 0) {
+            container.innerHTML = '<div class="empty-state">세션 없음</div>';
+            return;
+        }
+
+        // 최신 순으로 정렬
+        const sessions = Array.from(loadedSessions.values()).reverse();
+
+        sessions.forEach(session => {
+            const div = document.createElement("div");
+            div.className = "session-item";
+
+            if (session.id === selectedSession) {
+                div.classList.add("active");
+            }
+
+            if (session.isNew) {
+                div.classList.add("new");
+            }
+
+            const shortId = session.id.substring(0, 8);
+            div.innerHTML = `
+                <div>세션: ${shortId}...</div>
+                <div class="session-info">
+                    ${session.timestamp} | ${session.data.length}개 호출
+                </div>
+            `;
+
+            div.onclick = () => selectSession(session.id);
+            container.appendChild(div);
+        });
+
+        // 카운트 업데이트
+        document.getElementById("sessionCount").textContent = loadedSessions.size;
+    }
+
+    // 세션 선택
+    function selectSession(sessionId) {
+        selectedSession = sessionId;
+        const session = loadedSessions.get(sessionId);
+
+        if (session) {
+            session.isNew = false;  // new 표시 제거
+            renderSessionList();
+            renderGraph(buildTree(session.data));
+            updateStatus(`세션 ${sessionId.substring(0, 8)} 표시 중`);
+        }
+    }
+
+    // 트리 구조 생성
     function buildTree(entries) {
         if (!entries || entries.length === 0) return null;
 
         const nodeMap = {};
         const roots = [];
 
-        // 모든 노드를 맵에 저장
         entries.forEach(entry => {
-            nodeMap[entry.id] = {
-                ...entry,
-                children: []
-            };
+            nodeMap[entry.id] = { ...entry, children: [] };
         });
 
-        // 부모-자식 관계 설정
         entries.forEach(entry => {
             if (entry.parentId && nodeMap[entry.parentId]) {
                 nodeMap[entry.parentId].children.push(nodeMap[entry.id]);
@@ -109,40 +282,10 @@
             }
         });
 
-        console.log("Built tree with roots:", roots);
-        return roots.length > 0 ? roots[0] : null;  // 첫 번째 루트 반환
+        return roots.length > 0 ? roots[0] : null;
     }
 
-    function renderSessionList(sessions) {
-        const container = document.getElementById("session-list");
-        container.innerHTML = "";
-
-        if (sessions.length === 0) {
-            container.innerHTML = "<p>추적된 세션이 없습니다.</p>";
-            return;
-        }
-
-        sessions.forEach(sessionId => {
-            const div = document.createElement("div");
-            div.className = "session-item";
-            if (sessionId === selectedSession) {
-                div.classList.add("active");
-            }
-
-            // 세션 ID 표시 (짧게)
-            const shortId = sessionId.substring(0, 8) + "...";
-            div.textContent = `세션: ${shortId}`;
-
-            div.onclick = () => {
-                selectedSession = sessionId;
-                renderSessionList(sessions);  // 활성 상태 업데이트
-                renderGraphForSession();
-            };
-
-            container.appendChild(div);
-        });
-    }
-
+    // 그래프 렌더링
     function renderGraph(rootNode) {
         const svg = d3.select("svg");
         svg.selectAll("*").remove();
@@ -151,13 +294,14 @@
             svg.append("text")
                 .attr("x", 50)
                 .attr("y", 50)
-                .text("데이터가 없습니다.");
+                .text("데이터 없음")
+                .style("fill", "#6c757d");
             return;
         }
 
-        const width = 900;
-        const height = 600;
-        const margin = { top: 50, right: 50, bottom: 50, left: 100 };
+        const width = 1000;
+        const height = 700;
+        const margin = { top: 50, right: 50, bottom: 50, left: 150 };
 
         const treeLayout = d3.tree()
             .size([height - margin.top - margin.bottom, width - margin.left - margin.right]);
@@ -168,27 +312,22 @@
         const g = svg.append("g")
             .attr("transform", `translate(${margin.left},${margin.top})`);
 
-        // 링크 그리기
+        // 링크
         g.selectAll(".link")
             .data(root.links())
             .enter().append("path")
             .attr("class", "link")
-            .attr("d", d3.linkHorizontal()
-                .x(d => d.y)
-                .y(d => d.x));
+            .attr("d", d3.linkHorizontal().x(d => d.y).y(d => d.x));
 
-        // 노드 그리기
+        // 노드
         const node = g.selectAll(".node")
             .data(root.descendants())
             .enter().append("g")
             .attr("class", d => "node" + (d.data.error ? " error" : ""))
             .attr("transform", d => `translate(${d.y},${d.x})`);
 
-        // 노드 원
-        node.append("circle")
-            .attr("r", 5);
+        node.append("circle").attr("r", 5);
 
-        // 노드 텍스트
         node.append("text")
             .attr("dy", -10)
             .attr("text-anchor", "middle")
@@ -198,57 +337,42 @@
                 return `${className}.${d.data.methodName}`;
             });
 
-        // 실행 시간 표시
         node.append("text")
             .attr("dy", 20)
             .attr("text-anchor", "middle")
             .style("font-size", "9px")
-            .style("fill", "#666")
+            .style("fill", "#6c757d")
             .text(d => `${d.data.duration}ms`);
     }
 
-    function renderGraphForSession() {
-        if (!selectedSession || allData.length === 0) {
-            console.log("No session selected or no data");
-            return;
-        }
+    // 상태 업데이트
+    function updateStatus(message) {
+        document.getElementById("status").textContent = `${new Date().toLocaleTimeString()} - ${message}`;
+    }
 
-        // 선택된 세션의 엔트리들만 필터링
-        const sessionEntries = allData.filter(e => e.sessionId === selectedSession);
-        console.log(`Found ${sessionEntries.length} entries for session ${selectedSession}`);
+    // 자동 새로고침 토글
+    function toggleAutoRefresh() {
+        autoRefresh = !autoRefresh;
+        const btn = document.getElementById("autoBtn");
 
-        if (sessionEntries.length > 0) {
-            const tree = buildTree(sessionEntries);
-            renderGraph(tree);
+        if (autoRefresh) {
+            btn.textContent = "자동: ON";
+            btn.style.background = "#28a745";
+            autoRefreshTimer = setInterval(checkNewSessions, 5000);
+        } else {
+            btn.textContent = "자동: OFF";
+            btn.style.background = "#6c757d";
+            clearInterval(autoRefreshTimer);
         }
     }
 
-    async function updateData() {
-        allData = await fetchTrace();
-
-        if (!allData || allData.length === 0) {
-            console.log("No data received");
-            return;
-        }
-
-        // 세션 ID 추출
-        const sessions = Array.from(new Set(allData.map(e => e.sessionId).filter(Boolean)));
-        console.log("Found sessions:", sessions);
-
-        // 세션 목록 렌더링
-        renderSessionList(sessions);
-
-        // 첫 번째 세션 자동 선택
-        if (!selectedSession && sessions.length > 0) {
-            selectedSession = sessions[0];
-            renderGraphForSession();
-        }
-    }
-
+    // 초기화
     async function init() {
-        await updateData();
-        // 5초마다 업데이트
-        setInterval(updateData, 5000);
+        updateStatus("초기화 중...");
+        await checkNewSessions();
+
+        // 초기 로드만, 자동 갱신은 사용자가 켜야 함
+        updateStatus("준비 완료");
     }
 
     init();
