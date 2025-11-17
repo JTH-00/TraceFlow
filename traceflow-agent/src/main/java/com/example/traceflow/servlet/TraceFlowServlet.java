@@ -1,8 +1,6 @@
 package com.example.traceflow.servlet;
 
 import com.example.traceflow.store.TraceStore;
-import com.example.traceflow.tree.TraceTreeBuilder;
-import com.example.traceflow.tree.TraceTreeNode;
 import com.example.traceflow.vo.TraceEntry;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -19,9 +17,8 @@ public class TraceFlowServlet extends HttpServlet {
         resp.setContentType("application/json; charset=UTF-8");
 
         List<TraceEntry> entries = TraceStore.getTraces();
-        List<TraceTreeNode> tree = TraceTreeBuilder.buildTree(entries);
 
-        String json = new Gson().toJson(tree);
+        String json = new Gson().toJson(entries);
         resp.getWriter().write(json);
     }
 }

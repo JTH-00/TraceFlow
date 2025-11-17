@@ -5,23 +5,69 @@
     <title>TraceFlow UI</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
-        body { display: flex; font-family: sans-serif; }
-        #sidebar { width: 200px; border-right: 1px solid #ccc; padding: 10px; }
-        #graph { flex: 1; padding: 10px; }
-        .node circle { fill: steelblue; cursor: pointer; }
-        .node text { font-size: 12px; }
-        .link { fill: none; stroke: #ccc; stroke-width: 2px; }
+        body { display: flex; font-family: sans-serif; margin: 0; }
+        #sidebar {
+            width: 250px;
+            border-right: 1px solid #ccc;
+            padding: 20px;
+            background: #f5f5f5;
+            overflow-y: auto;
+            max-height: 100vh;
+        }
+        #graph {
+            flex: 1;
+            padding: 20px;
+            overflow: auto;
+        }
+        .session-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: white;
+            border-radius: 5px;
+            cursor: pointer;
+            border: 1px solid #ddd;
+        }
+        .session-item:hover {
+            background: #e8e8e8;
+        }
+        .session-item.active {
+            background: #4CAF50;
+            color: white;
+        }
+        .node circle {
+            fill: #4CAF50;
+            cursor: pointer;
+            stroke: white;
+            stroke-width: 2px;
+        }
+        .node.error circle {
+            fill: #f44336;
+        }
+        .node text {
+            font-size: 11px;
+            font-family: monospace;
+        }
+        .link {
+            fill: none;
+            stroke: #999;
+            stroke-width: 1.5px;
+        }
+        h3 {
+            margin-top: 0;
+            color: #333;
+        }
     </style>
 </head>
 <body>
 
 <div id="sidebar">
-    <h3>히스토리</h3>
-    <ul id="session-list"></ul>
+    <h3>추적 세션 목록</h3>
+    <div id="session-list"></div>
 </div>
 
 <div id="graph">
-    <svg width="800" height="600"></svg>
+    <h3>호출 트리</h3>
+    <svg width="900" height="600"></svg>
 </div>
 
 <script>
@@ -29,103 +75,180 @@
     let allData = [];
 
     async function fetchTrace() {
-      const res = await fetch("/logs"); // 백엔드 엔드포인트
-      return await res.json();
+        try {
+            const res = await fetch("/logs");
+            const data = await res.json();
+            console.log("Fetched data:", data);
+            return data;
+        } catch (error) {
+            console.error("Error fetching traces:", error);
+            return [];
+        }
     }
 
     function buildTree(entries) {
-      const map = {};
-      entries.forEach(e => map[e.id] = {...e, children: []});
-      let root = null;
-      entries.forEach(e => {
-        if (e.parentId) {
-          map[e.parentId]?.children.push(map[e.id]);
-        } else {
-          root = map[e.id];
-        }
-      });
-      return root;
+        if (!entries || entries.length === 0) return null;
+
+        const nodeMap = {};
+        const roots = [];
+
+        // 모든 노드를 맵에 저장
+        entries.forEach(entry => {
+            nodeMap[entry.id] = {
+                ...entry,
+                children: []
+            };
+        });
+
+        // 부모-자식 관계 설정
+        entries.forEach(entry => {
+            if (entry.parentId && nodeMap[entry.parentId]) {
+                nodeMap[entry.parentId].children.push(nodeMap[entry.id]);
+            } else {
+                roots.push(nodeMap[entry.id]);
+            }
+        });
+
+        console.log("Built tree with roots:", roots);
+        return roots.length > 0 ? roots[0] : null;  // 첫 번째 루트 반환
     }
 
     function renderSessionList(sessions) {
-      const sessionList = document.getElementById("session-list");
-      sessionList.innerHTML = "";
-      sessions.forEach(sid => {
-        const li = document.createElement("li");
-        li.textContent = sid;
-        li.style.cursor = "pointer";
-        if (sid === selectedSession) {
-          li.style.fontWeight = "bold";
+        const container = document.getElementById("session-list");
+        container.innerHTML = "";
+
+        if (sessions.length === 0) {
+            container.innerHTML = "<p>추적된 세션이 없습니다.</p>";
+            return;
         }
-        li.onclick = () => {
-          selectedSession = sid;
-          renderGraphForSession();
-        };
-        sessionList.appendChild(li);
-      });
+
+        sessions.forEach(sessionId => {
+            const div = document.createElement("div");
+            div.className = "session-item";
+            if (sessionId === selectedSession) {
+                div.classList.add("active");
+            }
+
+            // 세션 ID 표시 (짧게)
+            const shortId = sessionId.substring(0, 8) + "...";
+            div.textContent = `세션: ${shortId}`;
+
+            div.onclick = () => {
+                selectedSession = sessionId;
+                renderSessionList(sessions);  // 활성 상태 업데이트
+                renderGraphForSession();
+            };
+
+            container.appendChild(div);
+        });
     }
 
-    function renderGraph(rootData) {
-      const svg = d3.select("svg");
-      svg.selectAll("*").remove();
+    function renderGraph(rootNode) {
+        const svg = d3.select("svg");
+        svg.selectAll("*").remove();
 
-      if (!rootData) return;
+        if (!rootNode) {
+            svg.append("text")
+                .attr("x", 50)
+                .attr("y", 50)
+                .text("데이터가 없습니다.");
+            return;
+        }
 
-      const treeLayout = d3.tree().size([500, 400]);
-      const root = d3.hierarchy(rootData);
-      treeLayout(root);
+        const width = 900;
+        const height = 600;
+        const margin = { top: 50, right: 50, bottom: 50, left: 100 };
 
-      svg.append("g")
-        .selectAll("line")
-        .data(root.links())
-        .join("line")
-        .attr("class", "link")
-        .attr("x1", d => d.source.x + 100)
-        .attr("y1", d => d.source.y + 50)
-        .attr("x2", d => d.target.x + 100)
-        .attr("y2", d => d.target.y + 50);
+        const treeLayout = d3.tree()
+            .size([height - margin.top - margin.bottom, width - margin.left - margin.right]);
 
-      const node = svg.append("g")
-        .selectAll("g")
-        .data(root.descendants())
-        .join("g")
-        .attr("class", "node")
-        .attr("transform", d => `translate(${d.x + 100},${d.y + 50})`);
+        const root = d3.hierarchy(rootNode);
+        treeLayout(root);
 
-      node.append("circle")
-        .attr("r", 20)
-        .style("fill", d => d.data.success ? "steelblue" : "tomato");
+        const g = svg.append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
 
-      node.append("text")
-        .attr("dy", -30)
-        .attr("text-anchor", "middle")
-        .text(d => `${d.data.className}.${d.data.methodName}`);
+        // 링크 그리기
+        g.selectAll(".link")
+            .data(root.links())
+            .enter().append("path")
+            .attr("class", "link")
+            .attr("d", d3.linkHorizontal()
+                .x(d => d.y)
+                .y(d => d.x));
+
+        // 노드 그리기
+        const node = g.selectAll(".node")
+            .data(root.descendants())
+            .enter().append("g")
+            .attr("class", d => "node" + (d.data.error ? " error" : ""))
+            .attr("transform", d => `translate(${d.y},${d.x})`);
+
+        // 노드 원
+        node.append("circle")
+            .attr("r", 5);
+
+        // 노드 텍스트
+        node.append("text")
+            .attr("dy", -10)
+            .attr("text-anchor", "middle")
+            .text(d => {
+                const className = d.data.className ?
+                    d.data.className.split('.').pop() : 'Unknown';
+                return `${className}.${d.data.methodName}`;
+            });
+
+        // 실행 시간 표시
+        node.append("text")
+            .attr("dy", 20)
+            .attr("text-anchor", "middle")
+            .style("font-size", "9px")
+            .style("fill", "#666")
+            .text(d => `${d.data.duration}ms`);
     }
 
     function renderGraphForSession() {
-      if (!selectedSession) return;
-      const sessionEntries = allData.filter(e => e.sessionId === selectedSession);
-      renderGraph(buildTree(sessionEntries));
+        if (!selectedSession || allData.length === 0) {
+            console.log("No session selected or no data");
+            return;
+        }
+
+        // 선택된 세션의 엔트리들만 필터링
+        const sessionEntries = allData.filter(e => e.sessionId === selectedSession);
+        console.log(`Found ${sessionEntries.length} entries for session ${selectedSession}`);
+
+        if (sessionEntries.length > 0) {
+            const tree = buildTree(sessionEntries);
+            renderGraph(tree);
+        }
     }
 
     async function updateData() {
-      allData = await fetchTrace();
-      const sessions = Array.from(new Set(allData.map(e => e.sessionId)));
+        allData = await fetchTrace();
 
-      // 새로운 세션 생기면 사이드바 업데이트
-      renderSessionList(sessions);
+        if (!allData || allData.length === 0) {
+            console.log("No data received");
+            return;
+        }
 
-      // 세션이 아직 선택 안됐으면 첫 번째 선택
-      if (!selectedSession && sessions.length > 0) {
-        selectedSession = sessions[0];
-      }
+        // 세션 ID 추출
+        const sessions = Array.from(new Set(allData.map(e => e.sessionId).filter(Boolean)));
+        console.log("Found sessions:", sessions);
 
-      renderGraphForSession();
+        // 세션 목록 렌더링
+        renderSessionList(sessions);
+
+        // 첫 번째 세션 자동 선택
+        if (!selectedSession && sessions.length > 0) {
+            selectedSession = sessions[0];
+            renderGraphForSession();
+        }
     }
 
     async function init() {
-      await updateData();
-      setInterval(updateData, 2000); // 2초마다 자동 갱신
+        await updateData();
+        // 5초마다 업데이트
+        setInterval(updateData, 5000);
     }
 
     init();

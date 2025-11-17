@@ -1,6 +1,7 @@
 package com.example.traceflow.agent;
 
 import com.example.traceflow.anotation.TraceFlow;
+import com.example.traceflow.interceptor.EntryPointInterceptor;
 import com.example.traceflow.interceptor.TraceFlowInterceptor;
 import net.bytebuddy.agent.builder.AgentBuilder;
 import net.bytebuddy.description.method.MethodDescription;
@@ -11,6 +12,7 @@ import net.bytebuddy.matcher.ElementMatcher;
 import net.bytebuddy.utility.JavaModule;
 
 import java.lang.instrument.Instrumentation;
+import java.lang.reflect.Method;
 import java.security.ProtectionDomain;
 
 import static net.bytebuddy.matcher.ElementMatchers.*;
@@ -29,6 +31,47 @@ public class TraceFlowTransformer {
         installUniversalTransformer(inst);
 
         System.out.println("[TraceFlow Agent] Instrumentation installed successfully");
+    }
+
+    private static void startWebServer(String agentArgs) {
+        int port = 8081; // 기본 포트
+
+        // agentArgs에서 포트 파싱 (예: "port=8082")
+        if (agentArgs != null && !agentArgs.isEmpty()) {
+            try {
+                if (agentArgs.contains("=")) {
+                    String[] parts = agentArgs.split("=");
+                    port = Integer.parseInt(parts[1]);
+                } else {
+                    port = Integer.parseInt(agentArgs);
+                }
+            } catch (NumberFormatException e) {
+                System.err.println("[TraceFlow] Invalid port: " + agentArgs);
+            }
+        }
+
+        // Jetty 서버 시작 (별도 스레드)
+        final int finalPort = port;
+        Thread serverThread = new Thread(() -> {
+            try {
+                // Jetty 클래스 확인
+                Class.forName("org.eclipse.jetty.server.Server");
+
+                // TraceFlowWebServer 시작
+                Class<?> webServerClass = Class.forName("com.example.traceflow.server.TraceFlowWebServer");
+                Method startMethod = webServerClass.getMethod("start", int.class);
+                startMethod.invoke(null, finalPort);
+
+            } catch (ClassNotFoundException e) {
+                System.out.println("[TraceFlow] Jetty not available, web UI disabled");
+            } catch (Exception e) {
+                System.err.println("[TraceFlow] Failed to start web server: " + e.getMessage());
+            }
+        });
+        serverThread.setDaemon(true);
+        serverThread.start();
+
+        System.out.println("[TraceFlow] Web server starting on port " + finalPort);
     }
 
     // @TraceFlow 진입점 변환기
@@ -112,7 +155,7 @@ public class TraceFlowTransformer {
             }
 
             return builder.method(methodMatcher)
-                .intercept(MethodDelegation.to(TraceFlowInterceptor.class));
+                .intercept(MethodDelegation.to(EntryPointInterceptor.class));
         }
     }
 
