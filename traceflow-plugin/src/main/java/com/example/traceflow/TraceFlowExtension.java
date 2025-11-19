@@ -4,6 +4,7 @@ package com.example.traceflow;
 public class TraceFlowExtension {
     private boolean autoInject = true;
     private int webServerPort = 8081;
+    private String packagePath;
     private boolean includeTests = false;
     private boolean debugMode = false;
     private String agentPath;
@@ -27,6 +28,10 @@ public class TraceFlowExtension {
     public void setWebServerPort(int port) {
         this.webServerPort = port;
     }
+
+    public String getPackagePath() { return packagePath; }
+
+    public void setPackagePath(String pkg) { this.packagePath = pkg; }
 
     public boolean isIncludeTests() {
         return includeTests;

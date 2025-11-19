@@ -18,38 +18,50 @@ import java.security.ProtectionDomain;
 import static net.bytebuddy.matcher.ElementMatchers.*;
 
 public class TraceFlowTransformer {
+    private static int port = 8081;
 
     public static void premain(String agentArgs, Instrumentation inst) {
         System.out.println("[TraceFlow Agent] Starting instrumentation...");
 
-        startWebServer(agentArgs);
+        String targetPackage = parsePackagePath(agentArgs);
 
-        // 1. 먼저 @TraceFlow가 붙은 진입점 메서드만 변환
+        startWebServer(parsePort(agentArgs));
         installEntryPointTransformer(inst);
-
-        // 2. 그 다음 모든 애플리케이션 클래스의 메서드를 추적 가능하도록 변환
-        installUniversalTransformer(inst);
+        installUniversalTransformer(inst, targetPackage);
 
         System.out.println("[TraceFlow Agent] Instrumentation installed successfully");
     }
 
-    private static void startWebServer(String agentArgs) {
-        int port = 8081; // 기본 포트
-
-        // agentArgs에서 포트 파싱 (예: "port=8082")
-        if (agentArgs != null && !agentArgs.isEmpty()) {
-            try {
-                if (agentArgs.contains("=")) {
-                    String[] parts = agentArgs.split("=");
-                    port = Integer.parseInt(parts[1]);
-                } else {
-                    port = Integer.parseInt(agentArgs);
+    private static int parsePort(String agentArgs) {
+        // agentArgs에서 포트 파싱
+        if (agentArgs != null && agentArgs.contains("port=")) {
+            String[] parts = agentArgs.split(",");
+            for (String part : parts) {
+                if (part.startsWith("port=")) {
+                    try {
+                        port = Integer.parseInt(part.substring("port=".length()));
+                    } catch (NumberFormatException e) {
+                        System.err.println("[TraceFlow] Invalid port: " + agentArgs);
+                    }
                 }
-            } catch (NumberFormatException e) {
-                System.err.println("[TraceFlow] Invalid port: " + agentArgs);
             }
         }
+        return port;
+    }
 
+    private static String parsePackagePath(String agentArgs) {
+        if (agentArgs != null && agentArgs.contains("package=")) {
+            String[] parts = agentArgs.split(",");
+            for (String part : parts) {
+                if (part.startsWith("package=")) {
+                    return part.substring("package=".length());
+                }
+            }
+        }
+        return null;
+    }
+
+    private static void startWebServer(int port) {
         // Jetty 서버 시작 (별도 스레드)
         final int finalPort = port;
         Thread serverThread = new Thread(() -> {
@@ -89,22 +101,18 @@ public class TraceFlowTransformer {
     }
 
     // 모든 애플리케이션 메서드 추적 변환기
-    private static void installUniversalTransformer(Instrumentation inst) {
+    private static void installUniversalTransformer(Instrumentation inst, String targetPackage) {
+        if (targetPackage == null || targetPackage.isEmpty()) {
+            throw new IllegalArgumentException("[TraceFlow Agent] Package path is required. " +
+                "Please specify package path in traceFlow configuration.");
+        }
+
         new AgentBuilder.Default()
             .with(AgentBuilder.RedefinitionStrategy.RETRANSFORMATION)
             .ignore(getIgnoreMatcher())
             .type(
-                // wip : test
-/*                nameStartsWith("com.")
-                    .or(nameStartsWith("org."))
-                    .and(not(nameStartsWith("org.springframework")))
-                    .and(not(nameStartsWith("org.apache")))
-                    .and(not(nameStartsWith("org.eclipse")))
-                    .and(not(nameStartsWith("com.example.traceflow")))
-                    .and(not(nameStartsWith("com.sun")))
-                    .and(not(nameStartsWith("com.google")))*/
                 // 사용자 애플리케이션 패키지 (설정 가능하도록)
-                nameStartsWith("com.example.musing")  // 사용자 코드만
+                nameStartsWith(targetPackage)  // 사용자 코드만
                     .and(not(nameContains("$$")))  // 프록시 제외
                     .and(not(nameContains("CGLIB")))  // CGLIB 제외
             )

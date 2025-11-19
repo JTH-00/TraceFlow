@@ -1,5 +1,6 @@
 package com.example.traceflow;
 
+import org.gradle.api.GradleException;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.tasks.JavaExec;
@@ -10,6 +11,7 @@ import java.util.List;
 import java.util.Objects;
 
 public class TraceFlowPlugin implements Plugin<Project> {
+    private static int port = 8081;
     @Override
     public void apply(Project project) {
         project.getLogger().lifecycle("[TraceFlow] Plugin Applied to " + project.getName());
@@ -20,7 +22,7 @@ public class TraceFlowPlugin implements Plugin<Project> {
 
         // 기본값 설정
         ext.setAutoInject(true);
-        ext.setWebServerPort(8081);
+        ext.setWebServerPort(port);
         ext.setIncludeTests(false);
 
         project.afterEvaluate(p -> {
@@ -30,8 +32,16 @@ public class TraceFlowPlugin implements Plugin<Project> {
             }
 
             if (ext.getAgentPath() == null || ext.getAgentPath().isEmpty()) {
-                project.getLogger().warn("[TraceFlow] agentPath not specified in traceFlow configuration");
-                return;
+                throw new GradleException("[TraceFlow] agentPath not specified in traceFlow configuration");
+            }
+
+            if (ext.getPackagePath() == null || ext.getPackagePath().isEmpty()) {
+                throw new GradleException("[TraceFlow] packagePath not specified in traceFlow configuration");
+            }
+
+            if (ext.getPackagePath().equals("com") || ext.getPackagePath().equals("org")) {
+                project.getLogger().warn("[TraceFlow] Package path '{}' is too broad and may cause proxy conflicts. " +
+                    "Please specify a more specific package path (e.g., 'com.example.myapp')", ext.getPackagePath());
             }
 
             File agentJar = new File(ext.getAgentPath());
@@ -64,10 +74,11 @@ public class TraceFlowPlugin implements Plugin<Project> {
             JavaExec execTask = (JavaExec) t;
             String agentArg = "-javaagent:" + actualAgentJar.getAbsolutePath();
 
-            // 웹서버 포트 설정
-            if (ext.getWebServerPort() != 8081) {
-                agentArg += "=" + ext.getWebServerPort();
-            }
+            // 포트와 패키지 설정
+            String options = String.format("port=%d,package=%s",
+                ext.getWebServerPort(),
+                ext.getPackagePath());
+            agentArg += "=" + options;
 
             List<String> newJvmArgs = new ArrayList<>(Objects.requireNonNull(execTask.getJvmArgs()));
 
