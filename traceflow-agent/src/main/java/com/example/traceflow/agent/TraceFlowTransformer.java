@@ -167,6 +167,11 @@ public class TraceFlowTransformer {
                                                 ClassLoader classLoader,
                                                 JavaModule javaModule,
                                                 ProtectionDomain protectionDomain) {
+            // auxiliary 클래스는 변환하지 않음
+            if (typeDescription.getName().contains("$auxiliary$") ||
+                typeDescription.getName().contains("$$")) {
+                return builder;
+            }
 
             // 모든 메서드 추적 (private, protected 포함)
             ElementMatcher<MethodDescription> methodMatcher =
@@ -176,12 +181,15 @@ public class TraceFlowTransformer {
                     .and(not(isBridge()))
                     .and(not(isNative()))
                     .and(not(isAbstract()))
+                    .and(not(isDeclaredBy(nameContains("$"))))
                     .and(not(named("toString")))
                     .and(not(named("hashCode")))
                     .and(not(named("equals")))
                     .and(not(named("clone")))
                     .and(not(named("finalize")))
                     .and(not(named("getClass")))
+                    .and(not(named("builder")))
+                    .and(not(named("build")))
                     .and(not(nameStartsWith("lambda$")))
                     .and(not(nameStartsWith("access$")));  // 내부 접근자 메서드 제외
 

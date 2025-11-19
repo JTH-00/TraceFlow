@@ -124,24 +124,49 @@ public class TraceFlowInterceptor {
         String className = method.getDeclaringClass().getName();
         String methodName = method.getName();
 
-        // 기본 Object 메서드들 제외
-        if (methodName.equals("toString") || methodName.equals("hashCode") ||
-            methodName.equals("equals") || methodName.equals("getClass")) {
+        // auxiliary 클래스 제외
+        if (className.contains("$auxiliary$") ||
+            className.contains("$$") ||
+            className.contains("$Builder") ||
+            className.contains("CGLIB")) {
             return true;
         }
 
-        // getter/setter 제외 (옵션)
-        if ((methodName.startsWith("get") || methodName.startsWith("set") ||
-            methodName.startsWith("is")) && methodName.length() > 3) {
-            // 단순 getter/setter는 제외하되, 복잡한 로직이 있을 수 있으므로
-            // 설정으로 제어 가능하도록
+        // 람다 메서드 제외
+        if (methodName.startsWith("lambda$") ||
+            methodName.equals("call") ||
+            methodName.equals("run")) {
+            return true;
+        }
+
+        // 기본 Object 메서드들 제외
+        if (methodName.equals("toString") ||
+            methodName.equals("hashCode") ||
+            methodName.equals("equals") ||
+            methodName.equals("getClass")) {
+            return true;
+        }
+
+        // Lombok 생성 메서드 제외
+        if (methodName.equals("builder") ||
+            methodName.equals("build") ||
+            methodName.startsWith("access$")) {
+            return true;
+        }
+
+        // getter/setter 제외
+        if ((methodName.startsWith("get") ||
+            methodName.startsWith("set") ||
+            methodName.startsWith("is")) &&
+            methodName.length() > 3) {
             if (TraceContext.isSkipGetterSetter()) {
                 return true;
             }
         }
 
-        // 로깅, 모니터링 관련 클래스 제외
-        if (className.contains("Logger") || className.contains("Log4j") ||
+        // 로깅 관련 제외
+        if (className.contains("Logger") ||
+            className.contains("Log4j") ||
             className.contains("Slf4j")) {
             return true;
         }
