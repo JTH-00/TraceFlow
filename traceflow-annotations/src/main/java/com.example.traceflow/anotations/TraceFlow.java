@@ -1,4 +1,4 @@
-package com.example.traceflow.anotation;
+package com.example.traceflow.anotations;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

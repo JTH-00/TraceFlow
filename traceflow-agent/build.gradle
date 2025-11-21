@@ -4,6 +4,7 @@ plugins {
 }
 
 dependencies {
+	implementation project(':traceflow-annotations')
 	implementation 'net.bytebuddy:byte-buddy:1.14.9'
 	implementation 'net.bytebuddy:byte-buddy-agent:1.14.9'
 	implementation 'com.google.code.gson:gson:2.10.1'
@@ -25,12 +26,7 @@ jar {
 
 	// Fat JAR 생성
 	from {
-		configurations.runtimeClasspath.findAll {
-			it.name.contains("byte-buddy") ||
-			it.name.contains("gson") ||
-			it.name.contains("jakarta") ||
-			it.name.contains("jetty")
-		}.collect { zipTree(it) }
+		configurations.runtimeClasspath.collect { zipTree(it) }
 	}
 
 	duplicatesStrategy = DuplicatesStrategy.EXCLUDE

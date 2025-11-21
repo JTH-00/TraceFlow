@@ -1,6 +1,6 @@
 package com.example.traceflow.agent;
 
-import com.example.traceflow.anotation.TraceFlow;
+import com.example.traceflow.anotations.TraceFlow;
 import com.example.traceflow.interceptor.EntryPointInterceptor;
 import com.example.traceflow.interceptor.TraceFlowInterceptor;
 import net.bytebuddy.agent.builder.AgentBuilder;

@@ -1,3 +1,5 @@
 rootProject.name = 'traceflow'
 include 'traceflow-agent'
 include 'traceflow-plugin'
+include 'traceflow-annotations'
+
