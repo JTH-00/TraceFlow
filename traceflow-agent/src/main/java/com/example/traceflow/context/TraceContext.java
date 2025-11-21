@@ -28,8 +28,6 @@ public class TraceContext {
     // 세션별 데이터 저장소 (thread-safe)
     private static final Map<String, SessionData> sessions = new ConcurrentHashMap<>();
 
-    // 설정
-    private static boolean skipGetterSetter = true;
     private static Set<String> excludedPackages = new HashSet<>();
 
     static {
@@ -228,15 +226,6 @@ public class TraceContext {
     }
 
     // === 설정 메서드 ===
-
-    public static boolean isSkipGetterSetter() {
-        return skipGetterSetter;
-    }
-
-    public static void setSkipGetterSetter(boolean skip) {
-        skipGetterSetter = skip;
-    }
-
     public static void addExcludedPackage(String packagePrefix) {
         excludedPackages.add(packagePrefix);
     }

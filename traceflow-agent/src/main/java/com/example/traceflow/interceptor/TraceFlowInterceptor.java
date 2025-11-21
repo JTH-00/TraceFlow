@@ -154,16 +154,6 @@ public class TraceFlowInterceptor {
             return true;
         }
 
-        // getter/setter 제외
-        if ((methodName.startsWith("get") ||
-            methodName.startsWith("set") ||
-            methodName.startsWith("is")) &&
-            methodName.length() > 3) {
-            if (TraceContext.isSkipGetterSetter()) {
-                return true;
-            }
-        }
-
         // 로깅 관련 제외
         if (className.contains("Logger") ||
             className.contains("Log4j") ||
