@@ -152,6 +152,7 @@ public class TraceFlowTransformer {
             if (classHasTraceFlow) {
                 // 클래스 레벨 @TraceFlow: 모든 public 메서드가 진입점
                 methodMatcher = isPublic()
+                    .and(not(isDeclaredBy(Object.class)))
                     .and(not(isConstructor()))
                     .and(not(isStatic()))
                     .and(not(isSynthetic()))
@@ -159,6 +160,7 @@ public class TraceFlowTransformer {
             } else {
                 // 메서드 레벨 @TraceFlow: 해당 메서드만 진입점
                 methodMatcher = isAnnotatedWith(TraceFlow.class)
+                    .and(not(isDeclaredBy(Object.class)))
                     .and(isPublic());
             }
 
