@@ -13,7 +13,7 @@
         }
 
         #sidebar {
-            width: 280px;
+            width: 320px;
             border-right: 1px solid #ddd;
             padding: 20px;
             background: #f8f9fa;
@@ -41,6 +41,55 @@
 
         .controls button:hover {
             background: #0056b3;
+        }
+
+        /* 필터 섹션 */
+        .filter-section {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .filter-section h4 {
+            margin-bottom: 10px;
+            font-size: 14px;
+            color: #495057;
+        }
+
+        .filter-option {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            cursor: pointer;
+        }
+
+        .filter-option input[type="checkbox"] {
+            margin-right: 8px;
+            cursor: pointer;
+        }
+
+        .filter-option label {
+            flex: 1;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .filter-count {
+            color: #6c757d;
+            font-size: 11px;
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 10px;
+            margin-left: 5px;
+        }
+
+        .filter-stats {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #dee2e6;
         }
 
         .session-item {
@@ -88,14 +137,34 @@
             font-size: 14px;
         }
 
-        .node circle {
+        /* Entry Point - 파란색 */
+        .node.entry-point circle {
+            fill: #007bff;
+            stroke: white;
+            stroke-width: 2px;
+        }
+
+        /* Business - 초록색 */
+        .node.business circle {
             fill: #28a745;
             stroke: white;
             stroke-width: 2px;
         }
 
+        /* Getter/Setter - 회색 (반투명) */
+        .node.getter circle,
+        .node.setter circle {
+            fill: #6c757d;
+            opacity: 0.5;
+            stroke: white;
+            stroke-width: 2px;
+        }
+
+        /* 에러 - 빨간색 (최우선) */
         .node.error circle {
             fill: #dc3545;
+            stroke: white;
+            stroke-width: 2px;
         }
 
         .node text {
@@ -138,6 +207,23 @@
 
     <div id="status">대기 중...</div>
 
+    <!-- 필터 섹션 -->
+    <div class="filter-section">
+        <h4>🔍 메서드 필터</h4>
+
+        <div class="filter-option">
+            <input type="checkbox" id="filter-accessor" onchange="applyFilters()">
+            <label for="filter-accessor">
+                Getter/Setter 표시
+                <span class="filter-count" id="count-accessor">0</span>
+            </label>
+        </div>
+
+        <div class="filter-stats" id="filter-stats">
+            표시 중: 0 / 전체: 0
+        </div>
+    </div>
+
     <h4>세션 목록 <span id="sessionCount" class="badge">0</span></h4>
     <div id="session-list"></div>
 </div>
@@ -149,11 +235,15 @@
 
 <script>
     let selectedSession = null;
-    let loadedSessions = new Map();  // 세션ID -> 데이터
+    let loadedSessions = new Map();
     let autoRefresh = false;
     let autoRefreshTimer = null;
+    let currentData = null;
+    let filters = {
+        showAccessors: false
+    };
 
-    // 새 세션 확인 (중복 로드 방지)
+    // 새 세션 확인
     async function checkNewSessions() {
         updateStatus("새 세션 확인 중...");
 
@@ -162,18 +252,18 @@
             const data = await res.json();
 
             if (data.hasNew) {
-                updateStatus(`${data.newSessions.size}개의 새 세션 발견!`);
+                const newSessionsArray = data.newSessions;
 
                 // 새 세션들만 로드
-                for (const sessionId of data.newSessions) {
+                for (const sessionId of newSessionsArray) {
                     await loadSession(sessionId, true);
                 }
 
                 renderSessionList();
 
                 // 자동으로 최신 세션 선택
-                if (data.newSessions.size > 0) {
-                    const latestSession = Array.from(data.newSessions)[0];
+                if (newSessionsArray.length > 0) {
+                    const latestSession = newSessionsArray[0];
                     selectSession(latestSession);
                 }
             } else {
@@ -185,7 +275,7 @@
         }
     }
 
-    // 특정 세션 로드 (1회만)
+    // 특정 세션 로드
     async function loadSession(sessionId, isNew = false) {
         if (loadedSessions.has(sessionId)) {
             return loadedSessions.get(sessionId);
@@ -219,7 +309,6 @@
             return;
         }
 
-        // 최신 순으로 정렬
         const sessions = Array.from(loadedSessions.values()).reverse();
 
         sessions.forEach(session => {
@@ -246,7 +335,6 @@
             container.appendChild(div);
         });
 
-        // 카운트 업데이트
         document.getElementById("sessionCount").textContent = loadedSessions.size;
     }
 
@@ -256,11 +344,59 @@
         const session = loadedSessions.get(sessionId);
 
         if (session) {
-            session.isNew = false;  // new 표시 제거
+            session.isNew = false;
+            currentData = session.data;
+
             renderSessionList();
-            renderGraph(buildTree(session.data));
+            updateFilterCounts(currentData);
+            applyFilters();
+
             updateStatus(`세션 ${sessionId.substring(0, 8)} 표시 중`);
         }
+    }
+
+    // 필터 카운트 업데이트
+    function updateFilterCounts(data) {
+        if (!data || data.length === 0) return;
+
+        let accessorCount = 0;
+
+        data.forEach(entry => {
+            const type = entry.methodType || 'BUSINESS';
+            if (type === 'GETTER' || type === 'SETTER') {
+                accessorCount++;
+            }
+        });
+
+        document.getElementById('count-accessor').textContent = accessorCount;
+    }
+
+    // 필터 적용
+    function applyFilters() {
+        if (!currentData) return;
+
+        // 체크박스 상태 읽기
+        filters.showAccessors = document.getElementById('filter-accessor').checked;
+
+        // 필터링된 데이터
+        const filteredData = currentData.filter(entry => {
+            const type = entry.methodType || 'BUSINESS';
+
+            // Getter/Setter는 체크박스에 따라 표시
+            if (type === 'GETTER' || type === 'SETTER') {
+                return filters.showAccessors;
+            }
+
+            // Entry Point, Business는 항상 표시
+            return true;
+        });
+
+        // 통계 업데이트
+        document.getElementById('filter-stats').textContent =
+            `표시 중: ${filteredData.length} / 전체: ${currentData.length}`;
+
+        // 그래프 렌더링
+        renderGraph(buildTree(filteredData));
     }
 
     // 트리 구조 생성
@@ -323,7 +459,15 @@
         const node = g.selectAll(".node")
             .data(root.descendants())
             .enter().append("g")
-            .attr("class", d => "node" + (d.data.error ? " error" : ""))
+            .attr("class", d => {
+                let classes = "node";
+                if (d.data.error) classes += " error";
+
+                const type = d.data.methodType || 'BUSINESS';
+                classes += " " + type.toLowerCase().replace('_', '-');
+
+                return classes;
+            })
             .attr("transform", d => `translate(${d.y},${d.x})`);
 
         node.append("circle").attr("r", 5);
@@ -370,8 +514,6 @@
     async function init() {
         updateStatus("초기화 중...");
         await checkNewSessions();
-
-        // 초기 로드만, 자동 갱신은 사용자가 켜야 함
         updateStatus("준비 완료");
     }
 

@@ -68,6 +68,8 @@ public class TraceFlowInterceptor {
                     if (TraceContext.isTracingEnabledForSession(capturedSessionId)) {
                         long duration = System.currentTimeMillis() - startTime;
 
+                        String methodType = classifyMethod(method);
+
                         TraceEntry asyncEntry = new TraceEntry(
                             currentId,
                             capturedParentId,
@@ -80,7 +82,8 @@ public class TraceFlowInterceptor {
                             true,  // async
                             t != null,
                             t != null ? t.getClass().getSimpleName() : null,
-                            t != null ? t.getMessage() : null
+                            t != null ? t.getMessage() : null,
+                            methodType
                         );
 
                         TraceContext.addEntryToSession(capturedSessionId, asyncEntry);
@@ -96,6 +99,8 @@ public class TraceFlowInterceptor {
             if (!isAsync) {
                 long duration = System.currentTimeMillis() - startTime;
 
+                String methodType = classifyMethod(method);
+
                 TraceEntry entry = new TraceEntry(
                     currentId,
                     parentId,
@@ -108,7 +113,8 @@ public class TraceFlowInterceptor {
                     false,  // sync
                     error != null,
                     error != null ? error.getClass().getSimpleName() : null,
-                    error != null ? error.getMessage() : null
+                    error != null ? error.getMessage() : null,
+                    methodType
                 );
 
                 TraceContext.addEntry(entry);
@@ -118,6 +124,24 @@ public class TraceFlowInterceptor {
         }
 
         return result;
+    }
+
+    private static String classifyMethod(Method method) {
+        String name = method.getName();
+        int paramCount = method.getParameterCount();
+
+        // Getter 패턴
+        if ((name.startsWith("get") || name.startsWith("is")) && paramCount == 0) {
+            return "GETTER";
+        }
+
+        // Setter 패턴
+        if (name.startsWith("set") && paramCount == 1) {
+            return "SETTER";
+        }
+
+        // 그 외는 비즈니스 로직
+        return "BUSINESS";
     }
 
     private static boolean shouldSkipMethod(Method method) {

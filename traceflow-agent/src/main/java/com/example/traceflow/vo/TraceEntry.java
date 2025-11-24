@@ -13,9 +13,11 @@ public class TraceEntry {
     private final boolean error;
     private final String errorType;
     private final String errorMessage;
+    private String methodType;
 
     public TraceEntry(String id, String parentId, String sessionId, String className, String methodName, String returnType,
-                      long startTime, long duration, boolean async, boolean error, String errorType, String errorMessage) {
+                      long startTime, long duration, boolean async, boolean error, String errorType, String errorMessage,
+                      String methodType ) {
         this.id = id;
         this.parentId = parentId;
         this.sessionId = sessionId;
@@ -28,6 +30,7 @@ public class TraceEntry {
         this.error = error;
         this.errorType = errorType;
         this.errorMessage = errorMessage;
+        this.methodType = methodType;
     }
 
     public String getId() {
@@ -76,5 +79,13 @@ public class TraceEntry {
 
     public String getErrorMessage() {
         return errorMessage;
+    }
+
+    public String getMethodType() {
+        return methodType;
+    }
+
+    public void setMethodType(String methodType) {
+        this.methodType = methodType;
     }
 }

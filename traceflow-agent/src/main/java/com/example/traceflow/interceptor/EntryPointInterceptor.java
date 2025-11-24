@@ -10,6 +10,7 @@ import java.util.concurrent.Callable;
 
 public class EntryPointInterceptor {
 
+    private static final String ENTRY_TYPE = "ENTRY_POINT";
     @RuntimeType
     public static Object intercept(@Origin Method method,
                                    @AllArguments Object[] args,
@@ -47,7 +48,8 @@ public class EntryPointInterceptor {
                 startTime, duration, false,
                 error != null,
                 error != null ? error.getClass().getSimpleName() : null,
-                error != null ? error.getMessage() : null
+                error != null ? error.getMessage() : null,
+                ENTRY_TYPE
             );
 
             TraceContext.addEntry(entry);
