@@ -6,10 +6,13 @@ import com.example.traceflow.vo.TraceEntry;
 import net.bytebuddy.implementation.bind.annotation.*;
 
 import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.stream.Collectors;
 
 /**
  * 모든 하위 메서드를 추적하는 인터셉터
@@ -41,6 +44,11 @@ public class TraceFlowInterceptor {
             return callable.call();
         }
 
+        // 파라미터 타입 추출
+        List<String> parameterTypes = Arrays.stream(method.getParameterTypes())
+            .map(Class::getSimpleName)
+            .collect(Collectors.toList());
+
         TraceContext.pushCall(currentId);
 
         long startTime = System.currentTimeMillis();
@@ -61,14 +69,15 @@ public class TraceFlowInterceptor {
                 // 캡처된 컨텍스트
                 final String capturedSessionId = sessionId;
                 final String capturedParentId = parentId;
+                final List<String> capturedParamTypes = parameterTypes;
 
                 // 비동기 완료 시 처리
                 result = future.whenComplete((r, t) -> {
                     // 비동기 스레드에서도 추적이 활성화되어 있는지 확인
                     if (TraceContext.isTracingEnabledForSession(capturedSessionId)) {
                         long duration = System.currentTimeMillis() - startTime;
-
                         String methodType = classifyMethod(method);
+                        String stackTrace = t != null ? getStackTraceString(t, 5) : null;
 
                         TraceEntry asyncEntry = new TraceEntry(
                             currentId,
@@ -77,12 +86,14 @@ public class TraceFlowInterceptor {
                             method.getDeclaringClass().getName(),
                             method.getName(),
                             method.getReturnType().getSimpleName(),
+                            capturedParamTypes,
                             startTime,
                             duration,
                             true,  // async
                             t != null,
                             t != null ? t.getClass().getSimpleName() : null,
                             t != null ? t.getMessage() : null,
+                            stackTrace,
                             methodType
                         );
 
@@ -98,8 +109,8 @@ public class TraceFlowInterceptor {
             // 동기 호출인 경우에만 처리
             if (!isAsync) {
                 long duration = System.currentTimeMillis() - startTime;
-
                 String methodType = classifyMethod(method);
+                String stackTrace = error != null ? getStackTraceString(error, 5) : null;
 
                 TraceEntry entry = new TraceEntry(
                     currentId,
@@ -108,12 +119,14 @@ public class TraceFlowInterceptor {
                     method.getDeclaringClass().getName(),
                     method.getName(),
                     method.getReturnType().getSimpleName(),
+                    parameterTypes,
                     startTime,
                     duration,
                     false,  // sync
                     error != null,
                     error != null ? error.getClass().getSimpleName() : null,
                     error != null ? error.getMessage() : null,
+                    stackTrace,
                     methodType
                 );
 
@@ -186,5 +199,21 @@ public class TraceFlowInterceptor {
         }
 
         return false;
+    }
+
+    // 스택 트레이스를 문자열로 변환 (상위 N개만)
+    private static String getStackTraceString(Throwable throwable, int maxLines) {
+        if (throwable == null) return null;
+
+        StackTraceElement[] elements = throwable.getStackTrace();
+        int limit = Math.min(maxLines, elements.length);
+
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < limit; i++) {
+            sb.append(elements[i].toString());
+            if (i < limit - 1) sb.append("\n");
+        }
+
+        return sb.toString();
     }
 }

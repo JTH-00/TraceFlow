@@ -1,32 +1,52 @@
 package com.example.traceflow.server;
 
-import com.example.traceflow.servlet.FrontPageServlet;
 import com.example.traceflow.servlet.TraceFlowServlet;
 import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
+import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Server;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Properties;
+import org.eclipse.jetty.server.handler.ResourceHandler;
+import org.eclipse.jetty.util.resource.ResourceFactory;
 
 public class TraceFlowWebServer {
+    private static Server server;
+
     public static void start(int port) {
+        if (server != null && server.isRunning()) {
+            return;
+        }
+
         try {
-            Server server = new Server(port);
+            server = new Server(port);
 
-            // ServletContextHandler 생성
-            ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
-            context.setContextPath("/");
-            server.setHandler(context);
+            // 정적 리소스 핸들러
+            ResourceHandler resourceHandler = new ResourceHandler();
 
-            // 서블릿 등록
-            context.addServlet(FrontPageServlet.class, "/");
-            context.addServlet(TraceFlowServlet.class, "/logs");
+            // Jetty 12 리소스 설정
+            ResourceFactory resourceFactory = ResourceFactory.of(resourceHandler);
+            var webResource = resourceFactory.newClassLoaderResource("web");
 
+            resourceHandler.setBaseResource(webResource);
+            resourceHandler.setDirAllowed(false);
+            resourceHandler.setWelcomeFiles("index.html");
+
+            // 서블릿 핸들러
+            ServletContextHandler servletHandler = new ServletContextHandler(ServletContextHandler.SESSIONS);
+            servletHandler.setContextPath("/");
+            servletHandler.addServlet(TraceFlowServlet.class, "/logs");
+
+            // 핸들러 조합 (순서 중요!)
+            Handler.Sequence handlers = new Handler.Sequence(
+                resourceHandler,     // 먼저 정적 파일 확인
+                servletHandler       // 없으면 서블릿으로
+            );
+
+            server.setHandler(handlers);
             server.start();
-            System.out.println("[TraceFlowWebServer] Started on port " + port);
-            server.join();
+
+            System.out.println("[TraceFlow] Web UI started at http://localhost:" + port);
+
         } catch (Exception e) {
+            System.err.println("[TraceFlow] Failed to start web server: " + e.getMessage());
             e.printStackTrace();
         }
     }
