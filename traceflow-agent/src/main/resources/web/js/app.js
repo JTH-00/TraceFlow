@@ -17,7 +17,6 @@ function openModal(nodeData) {
     const modal = document.getElementById('modal');
     const modalBody = document.getElementById('modal-body');
 
-    // 줌 비활성화
     if (zoomBehavior) {
         d3.select("svg").on('.zoom', null);
         d3.select("svg").classed('modal-open', true);
@@ -25,70 +24,69 @@ function openModal(nodeData) {
 
     let html = `
         <div class="modal-row">
-            <div class="modal-label">클래스명</div>
+            <div class="modal-label">Class Name</div>
             <div class="modal-value">${nodeData.className}</div>
         </div>
 
         <div class="modal-row">
-            <div class="modal-label">메서드명</div>
+            <div class="modal-label">Method Name</div>
             <div class="modal-value">${nodeData.methodName}</div>
         </div>
 
         <div class="modal-row">
-            <div class="modal-label">파라미터</div>
+            <div class="modal-label">Parameters</div>
             <div>
                 ${nodeData.parameterTypes && nodeData.parameterTypes.length > 0
                     ? `<ul class="param-list">
                         ${nodeData.parameterTypes.map(type => `<li class="param-item">${type}</li>`).join('')}
                        </ul>`
-                    : '<div class="no-param">파라미터 없음</div>'
+                    : '<div class="no-param">No parameters</div>'
                 }
             </div>
         </div>
 
         <div class="modal-row">
-            <div class="modal-label">반환 타입</div>
+            <div class="modal-label">Return Type</div>
             <div class="modal-value">${nodeData.returnType}</div>
         </div>
 
         <div class="modal-row">
-            <div class="modal-label">실행 시간</div>
+            <div class="modal-label">Duration</div>
             <div class="modal-value">${nodeData.duration}ms</div>
         </div>
 
         <div class="modal-row">
-            <div class="modal-label">시작 시간</div>
+            <div class="modal-label">Start Time</div>
             <div class="modal-value">${new Date(nodeData.startTime).toLocaleString()}</div>
         </div>
 
         <div class="modal-row">
-            <div class="modal-label">비동기</div>
+            <div class="modal-label">Async</div>
             <div class="modal-value">${nodeData.async ? 'Yes' : 'No'}</div>
         </div>
     `;
 
-    // 에러 정보
     if (nodeData.error) {
         html += `
             <div class="error-section">
                 <div class="modal-row">
-                    <div class="modal-label">⚠️ 에러 발생</div>
+                    <div class="modal-label">⚠️ Error Occurred</div>
                     <div></div>
                 </div>
 
                 <div class="modal-row">
-                    <div class="modal-label">에러 타입</div>
+                    <div class="modal-label">Error Type</div>
                     <div class="modal-value">${nodeData.errorType || 'Unknown'}</div>
                 </div>
 
                 <div class="modal-row">
-                    <div class="modal-label">에러 메시지</div>
+                    <div class="modal-label">Error Message</div>
                     <div class="modal-value">${nodeData.errorMessage || 'No message'}</div>
                 </div>
 
                 ${nodeData.stackTrace ? `
                     <div class="modal-row">
-                        <div class="modal-label">스택 트레이스</div>
+                        <div class="modal-label">Stack Trace</div>
                         <div class="modal-value stack-trace">${nodeData.stackTrace}</div>
                     </div>
                 ` : ''}
@@ -105,7 +103,6 @@ function closeModal() {
     const modal = document.getElementById('modal');
     modal.classList.remove('active');
 
-    // 줌 재활성화
     if (zoomBehavior) {
         d3.select("svg").call(zoomBehavior);
         d3.select("svg").classed('modal-open', false);
@@ -142,7 +139,7 @@ function zoomReset() {
 
 // ========== Session Functions ==========
 async function checkNewSessions() {
-    updateStatus("새 세션 확인 중...");
+    updateStatus("Checking for new sessions...");
 
     try {
         const res = await fetch("/logs?action=new-sessions");
@@ -162,11 +159,11 @@ async function checkNewSessions() {
                 selectSession(latestSession);
             }
         } else {
-            updateStatus("새 세션 없음");
+            updateStatus("No new sessions");
         }
     } catch (error) {
         console.error("Error checking sessions:", error);
-        updateStatus("오류 발생");
+        updateStatus("Error occurred");
     }
 }
 
@@ -179,11 +176,18 @@ async function loadSession(sessionId, isNew = false) {
         const res = await fetch(`/logs?sessionId=${sessionId}`);
         const data = await res.json();
 
+        // Find entry point method name
+        const entryPoint = data.find(entry => entry.methodType === 'ENTRY_POINT');
+        const entryMethodName = entryPoint
+            ? `${entryPoint.className.split('.').pop()}.${entryPoint.methodName}`
+            : 'Unknown';
+
         loadedSessions.set(sessionId, {
             id: sessionId,
             data: data,
             isNew: isNew,
-            timestamp: new Date().toLocaleTimeString()
+            timestamp: new Date().toLocaleTimeString(),
+            entryMethodName: entryMethodName
         });
 
         return data;
@@ -198,7 +202,7 @@ function renderSessionList() {
     container.innerHTML = "";
 
     if (loadedSessions.size === 0) {
-        container.innerHTML = '<div class="empty-state">세션 없음</div>';
+        container.innerHTML = '<div class="empty-state">No sessions</div>';
         return;
     }
 
@@ -216,11 +220,10 @@ function renderSessionList() {
             div.classList.add("new");
         }
 
-        const shortId = session.id.substring(0, 8);
         div.innerHTML = `
-            <div>세션: ${shortId}...</div>
+            <div>${session.entryMethodName}</div>
             <div class="session-info">
-                ${session.timestamp} | ${session.data.length}개 호출
+                ${session.timestamp} | ${session.data.length} calls
             </div>
         `;
 
@@ -243,7 +246,7 @@ function selectSession(sessionId) {
         updateFilterCounts(currentData);
         applyFilters();
 
-        updateStatus(`세션 ${sessionId.substring(0, 8)} 표시 중`);
+        updateStatus(`Displaying session: ${session.entryMethodName}`);
     }
 }
 
@@ -279,7 +282,7 @@ function applyFilters() {
     });
 
     document.getElementById('filter-stats').textContent =
-        `표시 중: ${filteredData.length} / 전체: ${currentData.length}`;
+        `Showing: ${filteredData.length} / Total: ${currentData.length}`;
 
     renderGraph(buildTree(filteredData));
 }
@@ -315,7 +318,7 @@ function renderGraph(rootNode) {
         svg.append("text")
             .attr("x", 50)
             .attr("y", 50)
-            .text("데이터 없음")
+            .text("No data available")
             .style("fill", "#6c757d");
         return;
     }
@@ -405,19 +408,19 @@ function toggleAutoRefresh() {
     const btn = document.getElementById("autoBtn");
 
     if (autoRefresh) {
-        btn.textContent = "자동: ON";
+        btn.textContent = "Auto: ON";
         btn.style.background = "#28a745";
         autoRefreshTimer = setInterval(checkNewSessions, 5000);
     } else {
-        btn.textContent = "자동: OFF";
+        btn.textContent = "Auto: OFF";
         btn.style.background = "#6c757d";
         clearInterval(autoRefreshTimer);
     }
 }
 
 // ========== Event Listeners ==========
+let resizeTimer;
 window.addEventListener('resize', function() {
-    let resizeTimer;
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(function() {
         if (currentData) {
@@ -434,9 +437,9 @@ document.addEventListener('keydown', function(event) {
 
 // ========== Initialization ==========
 async function init() {
-    updateStatus("초기화 중...");
+    updateStatus("Initializing...");
     await checkNewSessions();
-    updateStatus("준비 완료");
+    updateStatus("Ready");
 }
 
 init();

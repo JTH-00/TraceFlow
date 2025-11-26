@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
     <meta charset="UTF-8" />
     <title>TraceFlow UI</title>
@@ -12,54 +12,54 @@
     <h3>TraceFlow Monitor</h3>
 
     <div class="controls">
-        <button onclick="checkNewSessions()">새로고침</button>
-        <button onclick="toggleAutoRefresh()" id="autoBtn">자동: OFF</button>
+        <button onclick="checkNewSessions()">Refresh</button>
+        <button onclick="toggleAutoRefresh()" id="autoBtn">Auto: OFF</button>
     </div>
 
-    <div id="status">대기 중...</div>
+    <div id="status">Waiting...</div>
 
     <!-- 필터 섹션 -->
     <div class="filter-section">
-        <h4>🔍 메서드 필터</h4>
+        <h4>🔍 Method Filter</h4>
 
         <div class="filter-option">
             <input type="checkbox" id="filter-accessor" onchange="applyFilters()">
             <label for="filter-accessor">
-                Getter/Setter 표시
+                Show Getter/Setter
                 <span class="filter-count" id="count-accessor">0</span>
             </label>
         </div>
 
         <div class="filter-stats" id="filter-stats">
-            표시 중: 0 / 전체: 0
+            Showing: 0 / Total: 0
         </div>
     </div>
 
-    <h4>세션 목록 <span id="sessionCount" class="badge">0</span></h4>
+    <h4>Session List<span id="sessionCount" class="badge">0</span></h4>
     <div id="session-list"></div>
 </div>
 
 <div id="graph">
-    <h3>호출 트리</h3>
+    <h3>Call Tree</h3>
 
     <div id="graph-container">
-        <!-- 줌 컨트롤 -->
+        <!-- Zoom Controls -->
         <div class="zoom-controls">
-            <button onclick="zoomIn()" title="확대">+</button>
+            <button onclick="zoomIn()" title="zoom-in">+</button>
             <div class="zoom-level" id="zoom-level">100%</div>
-            <button onclick="zoomOut()" title="축소">−</button>
-            <button onclick="zoomReset()" title="초기화">⟲</button>
+            <button onclick="zoomOut()" title="zoom-out">−</button>
+            <button onclick="zoomReset()" title="reset">⟲</button>
         </div>
 
         <svg></svg>
     </div>
 </div>
 
-<!-- 모달 -->
+<!-- Modal -->
 <div class="modal-overlay" id="modal" onclick="closeModalOnOverlay(event)">
     <div class="modal-content" onclick="event.stopPropagation()">
         <div class="modal-header">
-            <div class="modal-title">메서드 상세정보</div>
+            <div class="modal-title">Method Details</div>
             <button class="modal-close" onclick="closeModal()">&times;</button>
         </div>
         <div id="modal-body"></div>
