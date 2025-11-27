@@ -5,7 +5,8 @@ let autoRefresh = false;
 let autoRefreshTimer = null;
 let currentData = null;
 let filters = {
-    showAccessors: false
+    showAccessors: false,
+    mergeDuplicates: false
 };
 let zoomBehavior = null;
 let currentZoom = 1;
@@ -32,7 +33,24 @@ function openModal(nodeData) {
             <div class="modal-label">Method Name</div>
             <div class="modal-value">${nodeData.methodName}</div>
         </div>
+    `;
 
+    // Show additional info for merged methods
+    if (nodeData.mergedCount && nodeData.mergedCount > 1) {
+        html += `
+            <div class="modal-row">
+                <div class="modal-label">Merged Count</div>
+                <div class="modal-value">${nodeData.mergedCount} calls</div>
+            </div>
+
+            <div class="modal-row">
+                <div class="modal-label">Total Duration</div>
+                <div class="modal-value">${nodeData.totalDuration}ms (avg: ${Math.round(nodeData.totalDuration / nodeData.mergedCount)}ms)</div>
+            </div>
+        `;
+    }
+
+    html += `
         <div class="modal-row">
             <div class="modal-label">Parameters</div>
             <div>
@@ -255,7 +273,9 @@ function updateFilterCounts(data) {
     if (!data || data.length === 0) return;
 
     let accessorCount = 0;
+    let duplicateCount = 0;
 
+    // Count Getter/Setter in original data
     data.forEach(entry => {
         const type = entry.methodType || 'BUSINESS';
         if (type === 'GETTER' || type === 'SETTER') {
@@ -263,15 +283,29 @@ function updateFilterCounts(data) {
         }
     });
 
+    // Count duplicates - merge recursively first, then count how many were merged
+    const merged = mergeDuplicatesRecursive(data);
+    duplicateCount = data.length - merged.length;
+
     document.getElementById('count-accessor').textContent = accessorCount;
+    document.getElementById('count-duplicates').textContent = duplicateCount;
 }
 
 function applyFilters() {
     if (!currentData) return;
 
     filters.showAccessors = document.getElementById('filter-accessor').checked;
+    filters.mergeDuplicates = document.getElementById('merge-duplicates').checked;
 
-    const filteredData = currentData.filter(entry => {
+    let filteredData = [...currentData];
+
+    // Step 1: Apply duplicate merge filter FIRST (recursive)
+    if (filters.mergeDuplicates) {
+        filteredData = mergeDuplicatesRecursive(filteredData);
+    }
+
+    // Step 2: Apply Getter/Setter filter AFTER merging
+    filteredData = filteredData.filter(entry => {
         const type = entry.methodType || 'BUSINESS';
 
         if (type === 'GETTER' || type === 'SETTER') {
@@ -287,10 +321,22 @@ function applyFilters() {
     renderGraph(buildTree(filteredData));
 }
 
-// ========== Graph Functions ==========
-function buildTree(entries) {
-    if (!entries || entries.length === 0) return null;
+// Merge duplicate methods recursively at all levels
+function mergeDuplicatesRecursive(entries) {
+    if (!entries || entries.length === 0) return [];
 
+    // Build tree first
+    const tree = buildTreeForMerge(entries);
+
+    // Recursively merge tree
+    const mergedTree = mergeTreeRecursively(tree);
+
+    // Flatten back to entries
+    return flattenTree(mergedTree);
+}
+
+// Build tree structure for merging
+function buildTreeForMerge(entries) {
     const nodeMap = {};
     const roots = [];
 
@@ -303,6 +349,111 @@ function buildTree(entries) {
             nodeMap[entry.parentId].children.push(nodeMap[entry.id]);
         } else {
             roots.push(nodeMap[entry.id]);
+        }
+    });
+
+    return roots;
+}
+
+// Recursively merge duplicate methods in tree
+function mergeTreeRecursively(nodes) {
+    if (!nodes || nodes.length === 0) return [];
+
+    const methodMap = {};
+
+    nodes.forEach(node => {
+        const key = `${node.className}.${node.methodName}`;
+
+        if (!methodMap[key]) {
+            // First occurrence
+            methodMap[key] = {
+                ...node,
+                originalId: node.id,
+                mergedIds: [node.id],
+                mergedCount: 1,
+                totalDuration: node.duration,
+                children: node.children || []
+            };
+        } else {
+            // Duplicate found - merge
+            methodMap[key].mergedIds.push(node.id);
+            methodMap[key].mergedCount++;
+            methodMap[key].totalDuration += node.duration;
+
+            // Merge children
+            methodMap[key].children = methodMap[key].children.concat(node.children || []);
+        }
+    });
+
+    // Recursively merge children for each merged node
+    const merged = Object.values(methodMap).map(entry => {
+        if (entry.children && entry.children.length > 0) {
+            entry.children = mergeTreeRecursively(entry.children);
+        }
+        // Update duration to total
+        entry.duration = entry.totalDuration;
+        return entry;
+    });
+
+    return merged;
+}
+
+// Flatten tree back to entry list
+function flattenTree(nodes, parentId = null) {
+    if (!nodes || nodes.length === 0) return [];
+
+    const result = [];
+
+    nodes.forEach(node => {
+        const entry = {
+            ...node,
+            parentId: parentId
+        };
+
+        // Remove children from entry (will be added separately)
+        const children = entry.children;
+        delete entry.children;
+
+        result.push(entry);
+
+        if (children && children.length > 0) {
+            const childEntries = flattenTree(children, node.id);
+            result.push(...childEntries);
+        }
+    });
+
+    return result;
+}
+
+// ========== Graph Functions ==========
+function buildTree(entries) {
+    if (!entries || entries.length === 0) return null;
+
+    const nodeMap = {};
+    const roots = [];
+
+    entries.forEach(entry => {
+        nodeMap[entry.id] = { ...entry, children: [] };
+
+        // Map all IDs for merged items
+        if (entry.mergedIds && entry.mergedIds.length > 1) {
+            entry.mergedIds.forEach(id => {
+                nodeMap[id] = nodeMap[entry.id];
+            });
+        }
+    });
+
+    entries.forEach(entry => {
+        if (entry.parentId && nodeMap[entry.parentId]) {
+            const parent = nodeMap[entry.parentId];
+            // Prevent duplicate additions
+            if (!parent.children.some(child => child.id === entry.id)) {
+                parent.children.push(nodeMap[entry.id]);
+            }
+        } else {
+            if (!roots.some(root => root.id === entry.id)) {
+                roots.push(nodeMap[entry.id]);
+            }
         }
     });
 
@@ -368,6 +519,11 @@ function renderGraph(rootNode) {
             const type = d.data.methodType || 'BUSINESS';
             classes += " " + type.toLowerCase().replace('_', '-');
 
+            // Mark merged nodes
+            if (d.data.mergedCount && d.data.mergedCount > 1) {
+                classes += " merged";
+            }
+
             return classes;
         })
         .attr("transform", d => `translate(${d.y},${d.x})`)
@@ -384,7 +540,9 @@ function renderGraph(rootNode) {
         .text(d => {
             const className = d.data.className ?
                 d.data.className.split('.').pop() : 'Unknown';
-            return `${className}.${d.data.methodName}`;
+            const methodName = d.data.methodName;
+            const count = d.data.mergedCount > 1 ? ` (×${d.data.mergedCount})` : '';
+            return `${className}.${methodName}${count}`;
         });
 
     node.append("text")

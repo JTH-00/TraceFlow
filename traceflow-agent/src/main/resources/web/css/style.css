@@ -273,6 +273,15 @@ svg.modal-open {
     stroke-width: 1.5px;
 }
 
+.node.merged circle {
+    stroke: #ffc107;
+    stroke-width: 3px;
+}
+
+.node.merged text {
+    font-weight: bold;
+}
+
 /* ========== Modal ========== */
 .modal-overlay {
     position: fixed;
