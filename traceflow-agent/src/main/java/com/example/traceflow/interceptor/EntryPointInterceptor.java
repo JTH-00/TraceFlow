@@ -11,9 +11,9 @@ import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.stream.Collectors;
 
-public class EntryPointInterceptor {
+import static com.example.traceflow.enums.MethodTypeEnum.ENTRY_POINT;
 
-    private static final String ENTRY_TYPE = "ENTRY_POINT";
+public class EntryPointInterceptor {
 
     @RuntimeType
     public static Object intercept(@Origin Method method,
@@ -65,7 +65,7 @@ public class EntryPointInterceptor {
                 error != null ? error.getClass().getSimpleName() : null,
                 error != null ? error.getMessage() : null,
                 stackTrace,
-                ENTRY_TYPE
+                ENTRY_POINT
             );
 
             TraceContext.addEntry(entry);

@@ -12,7 +12,16 @@ import java.io.IOException;
 import java.util.*;
 
 public class TraceFlowServlet extends HttpServlet {
+    private static final String ACTION_SESSIONS = "sessions";
+    private static final String ACTION_NEW_SESSIONS = "new-sessions";
+
+    private static final String KEY_SESSIONS = "sessions";
+    private static final String KEY_COUNT = "count";
+    private static final String KEY_NEW_SESSIONS = "newSessions";
+    private static final String KEY_HAS_NEW = "hasNew";
+
     private static final Set<String> sentSessions = new HashSet<>();
+
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
@@ -23,15 +32,15 @@ public class TraceFlowServlet extends HttpServlet {
         String sessionId = req.getParameter("sessionId");
         Gson gson = new Gson();
 
-        if ("sessions".equals(action)) {
+        if (ACTION_SESSIONS.equals(action)) {
             // 세션 목록만 반환
             Set<String> sessions = TraceStore.getCompletedSessions();
             Map<String, Object> response = new HashMap<>();
-            response.put("sessions", sessions);
-            response.put("count", sessions.size());
+            response.put(KEY_SESSIONS, sessions);
+            response.put(KEY_COUNT, sessions.size());
             resp.getWriter().write(gson.toJson(response));
 
-        } else if ("new-sessions".equals(action)) {
+        } else if (ACTION_NEW_SESSIONS.equals(action)) {
             // 새로운 세션만 반환
             Set<String> allSessions = TraceStore.getCompletedSessions();
             Set<String> newSessions = new HashSet<>(allSessions);
@@ -39,8 +48,8 @@ public class TraceFlowServlet extends HttpServlet {
             sentSessions.addAll(newSessions);
 
             Map<String, Object> response = new HashMap<>();
-            response.put("newSessions", newSessions);
-            response.put("hasNew", !newSessions.isEmpty());
+            response.put(KEY_NEW_SESSIONS, newSessions);
+            response.put(KEY_HAS_NEW, !newSessions.isEmpty());
             resp.getWriter().write(gson.toJson(response));
 
         } else if (sessionId != null) {

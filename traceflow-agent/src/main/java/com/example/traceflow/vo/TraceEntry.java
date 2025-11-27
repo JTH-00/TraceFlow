@@ -1,5 +1,7 @@
 package com.example.traceflow.vo;
 
+import com.example.traceflow.enums.MethodTypeEnum;
+
 import java.util.List;
 
 public class TraceEntry {
@@ -17,7 +19,7 @@ public class TraceEntry {
     private final String errorType;
     private final String errorMessage;
     private final String stackTrace;
-    private String methodType;
+    private MethodTypeEnum methodType;
 
     public TraceEntry(String id, String parentId, String sessionId,
                       String className, String methodName, String returnType,
@@ -25,7 +27,7 @@ public class TraceEntry {
                       long startTime, long duration, boolean async,
                       boolean error, String errorType, String errorMessage,
                       String stackTrace,
-                      String methodType) {
+                      MethodTypeEnum methodType) {
         this.id = id;
         this.parentId = parentId;
         this.sessionId = sessionId;
@@ -44,20 +46,5 @@ public class TraceEntry {
     }
 
     // Getters
-    public String getId() { return id; }
-    public String getParentId() { return parentId; }
     public String getSessionId() { return sessionId; }
-    public String getClassName() { return className; }
-    public String getMethodName() { return methodName; }
-    public String getReturnType() { return returnType; }
-    public List<String> getParameterTypes() { return parameterTypes; }
-    public long getStartTime() { return startTime; }
-    public long getDuration() { return duration; }
-    public boolean isAsync() { return async; }
-    public boolean isError() { return error; }
-    public String getErrorType() { return errorType; }
-    public String getErrorMessage() { return errorMessage; }
-    public String getStackTrace() { return stackTrace; }
-    public String getMethodType() { return methodType; }
-    public void setMethodType(String methodType) { this.methodType = methodType; }
 }

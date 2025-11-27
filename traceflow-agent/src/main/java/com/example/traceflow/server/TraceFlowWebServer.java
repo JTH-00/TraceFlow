@@ -9,6 +9,9 @@ import org.eclipse.jetty.util.resource.ResourceFactory;
 
 public class TraceFlowWebServer {
     private static Server server;
+    private static final String WEB_RESOURCE_DIR = "web";
+    private static final String WELCOME_FILE = "index.html";
+    private static final String LOGS_PATH = "/logs";
 
     public static void start(int port) {
         if (server != null && server.isRunning()) {
@@ -23,16 +26,16 @@ public class TraceFlowWebServer {
 
             // Jetty 12 리소스 설정
             ResourceFactory resourceFactory = ResourceFactory.of(resourceHandler);
-            var webResource = resourceFactory.newClassLoaderResource("web");
+            var webResource = resourceFactory.newClassLoaderResource(WEB_RESOURCE_DIR);
 
             resourceHandler.setBaseResource(webResource);
             resourceHandler.setDirAllowed(false);
-            resourceHandler.setWelcomeFiles("index.html");
+            resourceHandler.setWelcomeFiles(WELCOME_FILE);
 
             // 서블릿 핸들러
             ServletContextHandler servletHandler = new ServletContextHandler(ServletContextHandler.SESSIONS);
             servletHandler.setContextPath("/");
-            servletHandler.addServlet(TraceFlowServlet.class, "/logs");
+            servletHandler.addServlet(TraceFlowServlet.class, LOGS_PATH);
 
             // 핸들러 조합 (순서 중요!)
             Handler.Sequence handlers = new Handler.Sequence(

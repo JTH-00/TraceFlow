@@ -11,19 +11,15 @@ import java.util.List;
 import java.util.Objects;
 
 public class TraceFlowPlugin implements Plugin<Project> {
-    private static int port = 8081;
+
+    private static final String EXTENSION_NAME = "traceFlow";
     @Override
     public void apply(Project project) {
         project.getLogger().lifecycle("[TraceFlow] Plugin Applied to " + project.getName());
 
         // Extension 생성
         TraceFlowExtension ext = project.getExtensions()
-            .create("traceFlow", TraceFlowExtension.class);
-
-        // 기본값 설정
-        ext.setAutoInject(true);
-        ext.setWebServerPort(port);
-        ext.setIncludeTests(false);
+            .create(EXTENSION_NAME, TraceFlowExtension.class);
 
         project.afterEvaluate(p -> {
             if (!ext.isAutoInject()) {
@@ -86,11 +82,6 @@ public class TraceFlowPlugin implements Plugin<Project> {
             if (!newJvmArgs.contains(agentArg)) {
                 newJvmArgs.add(agentArg);
                 project.getLogger().lifecycle("[TraceFlow] Injected agent: " + agentArg);
-            }
-
-            // 추가 JVM 옵션 (디버깅용)
-            if (ext.isDebugMode()) {
-                newJvmArgs.add("-Dtraceflow.debug=true");
             }
 
             execTask.setJvmArgs(newJvmArgs);

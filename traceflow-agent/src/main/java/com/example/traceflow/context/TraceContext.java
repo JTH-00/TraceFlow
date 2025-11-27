@@ -28,19 +28,6 @@ public class TraceContext {
     // 세션별 데이터 저장소 (thread-safe)
     private static final Map<String, SessionData> sessions = new ConcurrentHashMap<>();
 
-    private static Set<String> excludedPackages = new HashSet<>();
-
-    static {
-        // 기본 제외 패키지
-        excludedPackages.add("java.");
-        excludedPackages.add("javax.");
-        excludedPackages.add("sun.");
-        excludedPackages.add("com.sun.");
-        excludedPackages.add("org.springframework.boot.");
-        excludedPackages.add("org.springframework.context.");
-        excludedPackages.add("org.springframework.beans.");
-    }
-
     // 세션 데이터 클래스
     private static class SessionData {
         final String sessionId;
@@ -101,17 +88,6 @@ public class TraceContext {
     }
 
     /**
-     * 세션 복원 (비동기 처리용)
-     */
-    public static void restoreSession(String sessionId) {
-        currentSessionId.set(sessionId);
-        SessionData session = sessions.get(sessionId);
-        if (session != null) {
-            enableTracing();
-        }
-    }
-
-    /**
      * 현재 세션 ID 반환
      */
     public static String getSessionId() {
@@ -142,15 +118,6 @@ public class TraceContext {
         Deque<String> stack = callStack.get();
         return stack.isEmpty() ? null : stack.peek();
     }
-
-    /**
-     * 스택이 비어있는지 확인
-     */
-    public static boolean isStackEmpty() {
-        return callStack.get().isEmpty();
-    }
-
-    // === 엔트리 관리 ===
 
     /**
      * 현재 세션에 엔트리 추가
@@ -223,30 +190,5 @@ public class TraceContext {
                 Thread.currentThread().interrupt();
             }
         }).start();
-    }
-
-    // === 설정 메서드 ===
-    public static void addExcludedPackage(String packagePrefix) {
-        excludedPackages.add(packagePrefix);
-    }
-
-    public static boolean isPackageExcluded(String className) {
-        for (String prefix : excludedPackages) {
-            if (className.startsWith(prefix)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    // === 디버깅 메서드 ===
-
-    public static void printDebugInfo() {
-        System.out.println("=== TraceContext Debug Info ===");
-        System.out.println("Tracing enabled: " + isTracingEnabled());
-        System.out.println("Current session: " + currentSessionId.get());
-        System.out.println("Call stack size: " + callStack.get().size());
-        System.out.println("Active sessions: " + sessions.size());
-        System.out.println("================================");
     }
 }

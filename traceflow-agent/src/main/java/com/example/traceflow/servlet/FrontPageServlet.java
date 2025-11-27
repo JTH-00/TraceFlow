@@ -9,10 +9,11 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
 public class FrontPageServlet extends HttpServlet {
+    private static final String FRONT_PAGE_PATH = "web/index.html";
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         resp.setContentType("text/html; charset=UTF-8");
-        try (InputStream in = getClass().getClassLoader().getResourceAsStream("web/index.html")) {
+        try (InputStream in = getClass().getClassLoader().getResourceAsStream(FRONT_PAGE_PATH)) {
             if (in == null) {
                 resp.sendError(HttpServletResponse.SC_NOT_FOUND, "index.html not found");
                 return;

@@ -2,17 +2,21 @@
 package com.example.traceflow.interceptor;
 
 import com.example.traceflow.context.TraceContext;
+import com.example.traceflow.enums.MethodTypeEnum;
 import com.example.traceflow.vo.TraceEntry;
 import net.bytebuddy.implementation.bind.annotation.*;
 
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
+
+import static com.example.traceflow.enums.MethodTypeEnum.*;
 
 /**
  * 모든 하위 메서드를 추적하는 인터셉터
@@ -20,17 +24,42 @@ import java.util.stream.Collectors;
  */
 public class TraceFlowInterceptor {
 
+    // -------------------- 상수 --------------------
+    private static final int MAX_STACKTRACE_LINES = 5;
+
+    // Object 기본 메서드
+    private static final Set<String> OBJECT_METHODS = Set.of(
+        "toString", "hashCode", "equals", "getClass"
+    );
+
+    // Lombok / Builder 관련 메서드
+    private static final Set<String> LOMBOK_METHODS = Set.of(
+        "builder", "build"
+    );
+
+    // Lambda / Async 관련 접두사
+    private static final String LAMBDA_PREFIX = "lambda$";
+    private static final String ACCESSOR_PREFIX = "access$";
+
+    // Auxiliary / Proxy / CGLIB 클래스 식별자
+    private static final List<String> EXCLUDED_CLASS_PATTERNS = List.of(
+        "$auxiliary$", "$$", "$Builder", "CGLIB", "Logger", "Log4j", "Slf4j"
+    );
+
+    private static final Set<String> ASYNC_METHOD_NAMES = Set.of(
+        "call", "run"
+    );
+
+    // -------------------- 인터셉트 --------------------
     @RuntimeType
     public static Object intercept(@Origin Method method,
                                    @AllArguments Object[] args,
                                    @SuperCall Callable<?> callable) throws Exception {
 
-        // 추적이 비활성화되어 있으면 그냥 원본 메서드 실행
         if (!TraceContext.isTracingEnabled()) {
             return callable.call();
         }
 
-        // 재귀 호출이나 불필요한 메서드 필터링
         if (shouldSkipMethod(method)) {
             return callable.call();
         }
@@ -39,12 +68,10 @@ public class TraceFlowInterceptor {
         String currentId = UUID.randomUUID().toString();
         String sessionId = TraceContext.getSessionId();
 
-        // 부모가 없으면 (진입점이 아닌데 부모가 없는 경우) 스킵
         if (parentId == null) {
             return callable.call();
         }
 
-        // 파라미터 타입 추출
         List<String> parameterTypes = Arrays.stream(method.getParameterTypes())
             .map(Class::getSimpleName)
             .collect(Collectors.toList());
@@ -57,27 +84,22 @@ public class TraceFlowInterceptor {
         boolean isAsync = false;
 
         try {
-            // 메서드 실행
             result = callable.call();
 
-            // 비동기 처리 확인
-            if (result instanceof CompletableFuture || result instanceof CompletionStage) {
+            if (result instanceof CompletionStage) {
                 isAsync = true;
                 CompletableFuture<?> future = result instanceof CompletableFuture ?
                     (CompletableFuture<?>) result : ((CompletionStage<?>) result).toCompletableFuture();
 
-                // 캡처된 컨텍스트
                 final String capturedSessionId = sessionId;
                 final String capturedParentId = parentId;
                 final List<String> capturedParamTypes = parameterTypes;
 
-                // 비동기 완료 시 처리
                 result = future.whenComplete((r, t) -> {
-                    // 비동기 스레드에서도 추적이 활성화되어 있는지 확인
                     if (TraceContext.isTracingEnabledForSession(capturedSessionId)) {
                         long duration = System.currentTimeMillis() - startTime;
-                        String methodType = classifyMethod(method);
-                        String stackTrace = t != null ? getStackTraceString(t, 5) : null;
+                        MethodTypeEnum methodType = classifyMethod(method);
+                        String stackTrace = t != null ? getStackTraceString(t) : null;
 
                         TraceEntry asyncEntry = new TraceEntry(
                             currentId,
@@ -106,11 +128,10 @@ public class TraceFlowInterceptor {
             error = t;
             throw t;
         } finally {
-            // 동기 호출인 경우에만 처리
             if (!isAsync) {
                 long duration = System.currentTimeMillis() - startTime;
-                String methodType = classifyMethod(method);
-                String stackTrace = error != null ? getStackTraceString(error, 5) : null;
+                MethodTypeEnum methodType = classifyMethod(method);
+                String stackTrace = error != null ? getStackTraceString(error) : null;
 
                 TraceEntry entry = new TraceEntry(
                     currentId,
@@ -139,74 +160,48 @@ public class TraceFlowInterceptor {
         return result;
     }
 
-    private static String classifyMethod(Method method) {
+    // -------------------- 메서드 유형 분류 --------------------
+    private static MethodTypeEnum classifyMethod(Method method) {
         String name = method.getName();
         int paramCount = method.getParameterCount();
 
-        // Getter 패턴
         if ((name.startsWith("get") || name.startsWith("is")) && paramCount == 0) {
-            return "GETTER";
+            return GETTER;
         }
 
-        // Setter 패턴
         if (name.startsWith("set") && paramCount == 1) {
-            return "SETTER";
+            return SETTER;
         }
 
-        // 그 외는 비즈니스 로직
-        return "BUSINESS";
+        return BUSINESS;
     }
 
+    // -------------------- 제외 메서드 필터 --------------------
     private static boolean shouldSkipMethod(Method method) {
         String className = method.getDeclaringClass().getName();
         String methodName = method.getName();
 
-        // auxiliary 클래스 제외
-        if (className.contains("$auxiliary$") ||
-            className.contains("$$") ||
-            className.contains("$Builder") ||
-            className.contains("CGLIB")) {
+        for (String pattern : EXCLUDED_CLASS_PATTERNS) {
+            if (className.contains(pattern)) return true;
+        }
+
+        if (methodName.startsWith(LAMBDA_PREFIX) || methodName.startsWith(ACCESSOR_PREFIX)) {
             return true;
         }
 
-        // 람다 메서드 제외
-        if (methodName.startsWith("lambda$") ||
-            methodName.equals("call") ||
-            methodName.equals("run")) {
-            return true;
-        }
-
-        // 기본 Object 메서드들 제외
-        if (methodName.equals("toString") ||
-            methodName.equals("hashCode") ||
-            methodName.equals("equals") ||
-            methodName.equals("getClass")) {
-            return true;
-        }
-
-        // Lombok 생성 메서드 제외
-        if (methodName.equals("builder") ||
-            methodName.equals("build") ||
-            methodName.startsWith("access$")) {
-            return true;
-        }
-
-        // 로깅 관련 제외
-        if (className.contains("Logger") ||
-            className.contains("Log4j") ||
-            className.contains("Slf4j")) {
+        if (OBJECT_METHODS.contains(methodName) || LOMBOK_METHODS.contains(methodName) || ASYNC_METHOD_NAMES.contains(methodName)) {
             return true;
         }
 
         return false;
     }
 
-    // 스택 트레이스를 문자열로 변환 (상위 N개만)
-    private static String getStackTraceString(Throwable throwable, int maxLines) {
+    // -------------------- 스택 트레이스 변환 --------------------
+    private static String getStackTraceString(Throwable throwable) {
         if (throwable == null) return null;
 
         StackTraceElement[] elements = throwable.getStackTrace();
-        int limit = Math.min(maxLines, elements.length);
+        int limit = Math.min(MAX_STACKTRACE_LINES, elements.length);
 
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < limit; i++) {
