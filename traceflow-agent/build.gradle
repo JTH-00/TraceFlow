@@ -17,8 +17,8 @@ jar {
 
 	manifest {
 		attributes(
-				'Premain-Class': 'com.example.traceflow.agent.TraceFlowTransformer',
-				'Agent-Class': 'com.example.traceflow.agent.TraceFlowTransformer',
+				'Premain-Class': 'com.example.traceflow.agent.TraceFlowAgent',
+				'Agent-Class': 'com.example.traceflow.agent.TraceFlowAgent',
 				'Can-Redefine-Classes': 'true',
 				'Can-Retransform-Classes': 'true'
 		)

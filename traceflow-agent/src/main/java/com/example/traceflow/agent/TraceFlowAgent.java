@@ -20,7 +20,7 @@ import java.util.Map;
 
 import static net.bytebuddy.matcher.ElementMatchers.*;
 
-public class TraceFlowTransformer {
+public class TraceFlowAgent {
     private static final int DEFAULT_PORT = 8081;
     private static final String KEY_PORT = "port";
     private static final String KEY_PACKAGE = "package";
