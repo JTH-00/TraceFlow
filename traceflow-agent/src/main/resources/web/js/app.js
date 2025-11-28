@@ -149,9 +149,10 @@ function zoomOut() {
 function zoomReset() {
     if (!zoomBehavior || modalOpen) return;
     const svg = d3.select("svg");
+    const margin = { top: 50, right: 50, bottom: 50, left: 150 };
     svg.transition().duration(500).call(
         zoomBehavior.transform,
-        d3.zoomIdentity.translate(150, 50)
+        d3.zoomIdentity.translate(margin.left, margin.top)
     );
 }
 
@@ -485,14 +486,16 @@ function renderGraph(rootNode) {
         })
         .on("zoom", (event) => {
             if (!modalOpen) {
-                g.attr("transform", event.transform);
+                svg.select("g").attr("transform", event.transform)
                 currentZoom = event.transform.k;
                 document.getElementById('zoom-level').textContent =
                     `${Math.round(currentZoom * 100)}%`;
             }
         });
 
-    svg.call(zoomBehavior);
+    const initialTransform = d3.zoomIdentity.translate(margin.left, margin.top);
+    svg.call(zoomBehavior)
+       .call(zoomBehavior.transform, initialTransform);
 
     const treeLayout = d3.tree()
         .nodeSize([80, 200]);
