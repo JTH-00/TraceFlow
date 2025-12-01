@@ -1,4 +1,4 @@
-package com.example.traceflow.enums;
+package io.github.jth00.traceflow.enums;
 
 public enum MethodTypeEnum {
     GETTER,

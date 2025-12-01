@@ -1,7 +1,7 @@
-package com.example.traceflow.context;
+package io.github.jth00.traceflow.context;
 
-import com.example.traceflow.store.TraceStore;
-import com.example.traceflow.vo.TraceEntry;
+import io.github.jth00.traceflow.store.TraceStore;
+import io.github.jth00.traceflow.vo.TraceEntry;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;

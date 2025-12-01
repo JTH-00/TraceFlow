@@ -1,7 +1,7 @@
-package com.example.traceflow.servlet;
+package io.github.jth00.traceflow.servlet;
 
-import com.example.traceflow.store.TraceStore;
-import com.example.traceflow.vo.TraceEntry;
+import io.github.jth00.traceflow.store.TraceStore;
+import io.github.jth00.traceflow.vo.TraceEntry;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

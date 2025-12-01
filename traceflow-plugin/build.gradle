@@ -10,8 +10,8 @@ dependencies {
 gradlePlugin {
 	plugins {
 		traceFlow {
-			id = 'com.example.traceflow'
-			implementationClass = 'com.example.traceflow.TraceFlowPlugin'
+			id = 'io.github.jth00.traceflow'
+			implementationClass = 'io.github.jth00.traceflow.TraceFlowPlugin'
 		}
 	}
 }

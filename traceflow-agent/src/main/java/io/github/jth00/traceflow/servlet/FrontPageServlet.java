@@ -1,4 +1,4 @@
-package com.example.traceflow.servlet;
+package io.github.jth00.traceflow.servlet;
 
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;

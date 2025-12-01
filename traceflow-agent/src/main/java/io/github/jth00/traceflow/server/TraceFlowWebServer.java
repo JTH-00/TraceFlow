@@ -1,6 +1,6 @@
-package com.example.traceflow.server;
+package io.github.jth00.traceflow.server;
 
-import com.example.traceflow.servlet.TraceFlowServlet;
+import io.github.jth00.traceflow.servlet.TraceFlowServlet;
 import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
 import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Server;

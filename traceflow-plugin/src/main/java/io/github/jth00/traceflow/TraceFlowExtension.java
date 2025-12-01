@@ -1,4 +1,4 @@
-package com.example.traceflow;
+package io.github.jth00.traceflow;
 
 
 public class TraceFlowExtension {

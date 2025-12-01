@@ -1,14 +1,16 @@
-package com.example.traceflow.agent;
+package io.github.jth00.traceflow.agent;
 
-import com.example.traceflow.anotations.TraceFlow;
-import com.example.traceflow.interceptor.EntryPointInterceptor;
-import com.example.traceflow.interceptor.TraceFlowInterceptor;
+import io.github.jth00.traceflow.anotations.TraceFlow;
+import io.github.jth00.traceflow.interceptor.EntryPointInterceptor;
+import io.github.jth00.traceflow.interceptor.TraceFlowInterceptor;
+import io.github.jth00.traceflow.server.TraceFlowWebServer;
 import net.bytebuddy.agent.builder.AgentBuilder;
 import net.bytebuddy.description.method.MethodDescription;
 import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.dynamic.DynamicType;
 import net.bytebuddy.implementation.MethodDelegation;
 import net.bytebuddy.matcher.ElementMatcher;
+import net.bytebuddy.matcher.ElementMatchers;
 import net.bytebuddy.utility.JavaModule;
 
 import java.lang.instrument.Instrumentation;
@@ -26,12 +28,11 @@ public class TraceFlowAgent {
     private static final String KEY_PACKAGE = "package";
     private static final String JETTY_SERVER_CLASS = "org.eclipse.jetty.server.Server";
     private static final String TRACEFLOW_WEB_SERVER_CLASS = "com.example.traceflow.server.TraceFlowWebServer";
-
     private static final List<String> IGNORED_PACKAGE_PREFIXES = List.of(
         "net.bytebuddy", "java.", "javax.", "jakarta.",
         "sun.", "jdk.", "org.springframework",
         "org.hibernate", "com.mysql", "com.zaxxer",
-        "com.example.traceflow"
+        "io/github/jth00/traceflow"
     );
 
     private static final List<String> EXCLUDED_METHOD_NAMES = List.of(

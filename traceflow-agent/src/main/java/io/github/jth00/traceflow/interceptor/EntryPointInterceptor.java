@@ -1,7 +1,8 @@
-package com.example.traceflow.interceptor;
+package io.github.jth00.traceflow.interceptor;
 
-import com.example.traceflow.context.TraceContext;
-import com.example.traceflow.vo.TraceEntry;
+import io.github.jth00.traceflow.context.TraceContext;
+import io.github.jth00.traceflow.vo.TraceEntry;
+import io.github.jth00.traceflow.enums.MethodTypeEnum;
 import net.bytebuddy.implementation.bind.annotation.*;
 
 import java.lang.reflect.Method;
@@ -10,8 +11,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.stream.Collectors;
-
-import static com.example.traceflow.enums.MethodTypeEnum.ENTRY_POINT;
 
 public class EntryPointInterceptor {
 
@@ -65,7 +64,7 @@ public class EntryPointInterceptor {
                 error != null ? error.getClass().getSimpleName() : null,
                 error != null ? error.getMessage() : null,
                 stackTrace,
-                ENTRY_POINT
+                MethodTypeEnum.ENTRY_POINT
             );
 
             TraceContext.addEntry(entry);

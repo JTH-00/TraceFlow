@@ -1,4 +1,4 @@
-package com.example.traceflow;
+package io.github.jth00.traceflow;
 
 import org.gradle.api.GradleException;
 import org.gradle.api.Plugin;

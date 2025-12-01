@@ -1,6 +1,6 @@
-package com.example.traceflow.vo;
+package io.github.jth00.traceflow.vo;
 
-import com.example.traceflow.enums.MethodTypeEnum;
+import io.github.jth00.traceflow.enums.MethodTypeEnum;
 
 import java.util.List;
 

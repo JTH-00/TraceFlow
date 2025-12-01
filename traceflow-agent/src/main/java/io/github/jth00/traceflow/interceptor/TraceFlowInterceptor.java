@@ -1,9 +1,9 @@
 
-package com.example.traceflow.interceptor;
+package io.github.jth00.traceflow.interceptor;
 
-import com.example.traceflow.context.TraceContext;
-import com.example.traceflow.enums.MethodTypeEnum;
-import com.example.traceflow.vo.TraceEntry;
+import io.github.jth00.traceflow.context.TraceContext;
+import io.github.jth00.traceflow.enums.MethodTypeEnum;
+import io.github.jth00.traceflow.vo.TraceEntry;
 import net.bytebuddy.implementation.bind.annotation.*;
 
 import java.lang.reflect.Method;
@@ -15,8 +15,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
-
-import static com.example.traceflow.enums.MethodTypeEnum.*;
 
 /**
  * 모든 하위 메서드를 추적하는 인터셉터
@@ -166,14 +164,14 @@ public class TraceFlowInterceptor {
         int paramCount = method.getParameterCount();
 
         if ((name.startsWith("get") || name.startsWith("is")) && paramCount == 0) {
-            return GETTER;
+            return MethodTypeEnum.GETTER;
         }
 
         if (name.startsWith("set") && paramCount == 1) {
-            return SETTER;
+            return MethodTypeEnum.SETTER;
         }
 
-        return BUSINESS;
+        return MethodTypeEnum.BUSINESS;
     }
 
     // -------------------- 제외 메서드 필터 --------------------
