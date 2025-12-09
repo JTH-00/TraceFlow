@@ -8,6 +8,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
+/**
+ * Servlet for serving the main HTML page
+ * Returns index.html from resources
+ */
 public class FrontPageServlet extends HttpServlet {
     private static final String FRONT_PAGE_PATH = "web/index.html";
     @Override

@@ -9,26 +9,28 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * 추적 컨텍스트 관리
- * - 추적 활성화/비활성화 상태 관리
- * - 세션별 데이터 격리
- * - 스레드별 호출 스택 관리
+ * Manages tracing context for method execution
+ * - Enables/disables tracing state
+ * - Isolates data by session
+ * - Manages thread-local call stacks
  */
 public class TraceContext {
 
-    // 추적 활성화 상태 (ThreadLocal)
+    // Tracing enabled state (ThreadLocal)
     private static final ThreadLocal<Boolean> tracingEnabled = ThreadLocal.withInitial(() -> false);
 
-    // 현재 세션 ID
+    // Current session ID
     private static final ThreadLocal<String> currentSessionId = ThreadLocal.withInitial(() -> null);
 
-    // 호출 스택
+    // Call stack for tracking parent-child relationships
     private static final ThreadLocal<Deque<String>> callStack = ThreadLocal.withInitial(ArrayDeque::new);
 
-    // 세션별 데이터 저장소 (thread-safe)
+    // Session data storage (thread-safe)
     private static final Map<String, SessionData> sessions = new ConcurrentHashMap<>();
 
-    // 세션 데이터 클래스
+    /**
+     * Session data class
+     */
     private static class SessionData {
         final String sessionId;
         final List<TraceEntry> entries;
@@ -43,41 +45,45 @@ public class TraceContext {
         }
     }
 
-    // === 추적 제어 메서드 ===
+    // === Tracing Control Methods ===
 
     /**
-     * 추적 활성화
+     * Enable tracing for the current thread
      */
     public static void enableTracing() {
         tracingEnabled.set(true);
     }
 
     /**
-     * 추적 비활성화
+     * Disable tracing for the current thread
      */
     public static void disableTracing() {
         tracingEnabled.set(false);
     }
 
     /**
-     * 추적 활성화 상태 확인
+     * Check if tracing is enabled for the current thread
+     * @return true if tracing is enabled
      */
     public static boolean isTracingEnabled() {
         return Boolean.TRUE.equals(tracingEnabled.get());
     }
 
     /**
-     * 특정 세션의 추적 활성화 상태 확인
+     * Check if tracing is enabled for a specific session
+     * @param sessionId Session ID to check
+     * @return true if session is active
      */
     public static boolean isTracingEnabledForSession(String sessionId) {
         SessionData session = sessions.get(sessionId);
         return session != null && session.active.get();
     }
 
-    // === 세션 관리 메서드 ===
+    // === Session Management Methods ===
 
     /**
-     * 새 세션 시작
+     * Start a new tracing session
+     * @param sessionId Unique session identifier
      */
     public static void startNewSession(String sessionId) {
         currentSessionId.set(sessionId);
@@ -88,23 +94,26 @@ public class TraceContext {
     }
 
     /**
-     * 현재 세션 ID 반환
+     * Get current session ID
+     * @return Current session ID or null
      */
     public static String getSessionId() {
         return currentSessionId.get();
     }
 
-    // === 호출 스택 관리 ===
+    // === Call Stack Management ===
 
     /**
-     * 호출 스택에 추가
+     * Push a call ID onto the stack
+     * @param callId Unique call identifier
      */
     public static void pushCall(String callId) {
         callStack.get().push(callId);
     }
 
     /**
-     * 호출 스택에서 제거
+     * Pop a call ID from the stack
+     * @return Popped call ID or null if empty
      */
     public static String popCall() {
         Deque<String> stack = callStack.get();
@@ -112,7 +121,8 @@ public class TraceContext {
     }
 
     /**
-     * 현재 호출 ID 확인 (제거하지 않음)
+     * Peek at the current call ID without removing it
+     * @return Current call ID or null if empty
      */
     public static String peekCall() {
         Deque<String> stack = callStack.get();
@@ -120,7 +130,8 @@ public class TraceContext {
     }
 
     /**
-     * 현재 세션에 엔트리 추가
+     * Add an entry to the current session
+     * @param entry TraceEntry to add
      */
     public static void addEntry(TraceEntry entry) {
         String sessionId = currentSessionId.get();
@@ -133,7 +144,9 @@ public class TraceContext {
     }
 
     /**
-     * 특정 세션에 엔트리 추가 (비동기 처리용)
+     * Add an entry to a specific session (for async processing)
+     * @param sessionId Target session ID
+     * @param entry TraceEntry to add
      */
     public static void addEntryToSession(String sessionId, TraceEntry entry) {
         SessionData session = sessions.get(sessionId);
@@ -143,33 +156,33 @@ public class TraceContext {
     }
 
     /**
-     * 세션 데이터를 스토어로 플러시
+     * Flush session data to the store
      */
     public static void flush() {
         String sessionId = currentSessionId.get();
         if (sessionId != null) {
             SessionData session = sessions.get(sessionId);
             if (session != null && !session.entries.isEmpty()) {
-                // 스토어에 저장
+                // Save to store
                 TraceStore.addTraces(new ArrayList<>(session.entries));
 
-                // 세션 비활성화
+                // Deactivate session
                 session.active.set(false);
 
                 System.out.println("[TraceContext] Flushed " + session.entries.size() +
                     " entries for session: " + sessionId);
 
-                // 일정 시간 후 세션 정리 (메모리 관리)
+                // Schedule cleanup after some time (memory management)
                 scheduleSessionCleanup(sessionId);
             }
         }
 
-        // ThreadLocal 정리
+        // Clear ThreadLocal variables
         clearThreadLocals();
     }
 
     /**
-     * ThreadLocal 변수들 정리
+     * Clear ThreadLocal variables
      */
     private static void clearThreadLocals() {
         tracingEnabled.set(false);
@@ -178,12 +191,13 @@ public class TraceContext {
     }
 
     /**
-     * 세션 정리 스케줄링 (5분 후 제거)
+     * Schedule session cleanup (remove after 5 minutes)
+     * @param sessionId Session ID to cleanup
      */
     private static void scheduleSessionCleanup(String sessionId) {
         new Thread(() -> {
             try {
-                Thread.sleep(5 * 60 * 1000); // 5분 대기
+                Thread.sleep(5 * 60 * 1000); // Wait 5 minutes
                 sessions.remove(sessionId);
                 System.out.println("[TraceContext] Session cleaned up: " + sessionId);
             } catch (InterruptedException e) {

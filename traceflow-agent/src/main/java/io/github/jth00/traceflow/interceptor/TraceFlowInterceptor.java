@@ -17,29 +17,29 @@ import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 
 /**
- * 모든 하위 메서드를 추적하는 인터셉터
- * TraceContext가 활성화되어 있을 때만 동작
+ * Interceptor for all traced methods
+ * Only active when TraceContext is enabled
  */
 public class TraceFlowInterceptor {
 
-    // -------------------- 상수 --------------------
-    private static final int MAX_STACKTRACE_LINES = 5;
+    /** Maximum number of stack trace lines to capture when an error occurs */
+    private static final int MAX_ERROR_STACKTRACE_LINES = 5;
 
-    // Object 기본 메서드
+    // Object default methods
     private static final Set<String> OBJECT_METHODS = Set.of(
         "toString", "hashCode", "equals", "getClass"
     );
 
-    // Lombok / Builder 관련 메서드
+    // Lombok / Builder related methods
     private static final Set<String> LOMBOK_METHODS = Set.of(
         "builder", "build"
     );
 
-    // Lambda / Async 관련 접두사
+    // Lambda / Async related prefixes
     private static final String LAMBDA_PREFIX = "lambda$";
     private static final String ACCESSOR_PREFIX = "access$";
 
-    // Auxiliary / Proxy / CGLIB 클래스 식별자
+    // Auxiliary / Proxy / CGLIB class identifiers
     private static final List<String> EXCLUDED_CLASS_PATTERNS = List.of(
         "$auxiliary$", "$$", "$Builder", "CGLIB", "Logger", "Log4j", "Slf4j"
     );
@@ -48,10 +48,17 @@ public class TraceFlowInterceptor {
         "call", "run"
     );
 
-    // -------------------- 인터셉트 --------------------
+    // -------------------- Intercept --------------------
+
+    /**
+     * Intercept method execution for tracing
+     * @param method Original method being intercepted
+     * @param callable Callable to invoke original method
+     * @return Original method result
+     * @throws Exception Any exception from original method
+     */
     @RuntimeType
     public static Object intercept(@Origin Method method,
-                                   @AllArguments Object[] args,
                                    @SuperCall Callable<?> callable) throws Exception {
 
         if (!TraceContext.isTracingEnabled()) {
@@ -84,6 +91,7 @@ public class TraceFlowInterceptor {
         try {
             result = callable.call();
 
+            // Handle async methods (CompletableFuture)
             if (result instanceof CompletionStage) {
                 isAsync = true;
                 CompletableFuture<?> future = result instanceof CompletableFuture ?
@@ -158,7 +166,13 @@ public class TraceFlowInterceptor {
         return result;
     }
 
-    // -------------------- 메서드 유형 분류 --------------------
+    // -------------------- Method Classification --------------------
+
+    /**
+     * Classify method type (GETTER, SETTER, or BUSINESS)
+     * @param method Method to classify
+     * @return Method type enum
+     */
     private static MethodTypeEnum classifyMethod(Method method) {
         String name = method.getName();
         int paramCount = method.getParameterCount();
@@ -174,7 +188,13 @@ public class TraceFlowInterceptor {
         return MethodTypeEnum.BUSINESS;
     }
 
-    // -------------------- 제외 메서드 필터 --------------------
+    // -------------------- Method Exclusion Filter --------------------
+
+    /**
+     * Check if method should be skipped from tracing
+     * @param method Method to check
+     * @return true if method should be skipped
+     */
     private static boolean shouldSkipMethod(Method method) {
         String className = method.getDeclaringClass().getName();
         String methodName = method.getName();
@@ -194,12 +214,16 @@ public class TraceFlowInterceptor {
         return false;
     }
 
-    // -------------------- 스택 트레이스 변환 --------------------
+    /**
+     * Convert exception stack trace to string (top N lines only)
+     * @param throwable Exception to extract stack trace from
+     * @return Stack trace as string (limited to first {@value #MAX_ERROR_STACKTRACE_LINES} lines)
+     */
     private static String getStackTraceString(Throwable throwable) {
         if (throwable == null) return null;
 
         StackTraceElement[] elements = throwable.getStackTrace();
-        int limit = Math.min(MAX_STACKTRACE_LINES, elements.length);
+        int limit = Math.min(MAX_ERROR_STACKTRACE_LINES, elements.length);
 
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < limit; i++) {

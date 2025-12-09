@@ -11,6 +11,10 @@ import com.google.gson.Gson;
 import java.io.IOException;
 import java.util.*;
 
+/**
+ * REST API servlet for trace data
+ * Provides endpoints for fetching sessions and trace entries
+ */
 public class TraceFlowServlet extends HttpServlet {
     private static final String ACTION_SESSIONS = "sessions";
     private static final String ACTION_NEW_SESSIONS = "new-sessions";
@@ -22,7 +26,13 @@ public class TraceFlowServlet extends HttpServlet {
 
     private static final Set<String> sentSessions = new HashSet<>();
 
-
+    /**
+     * Handle GET requests for trace data
+     * Supports three modes:
+     * 1. ?action=sessions - Get all session IDs
+     * 2. ?action=new-sessions - Get only new session IDs
+     * 3. ?sessionId=xxx - Get trace data for specific session
+     */
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         resp.setContentType("application/json; charset=UTF-8");
@@ -33,7 +43,7 @@ public class TraceFlowServlet extends HttpServlet {
         Gson gson = new Gson();
 
         if (ACTION_SESSIONS.equals(action)) {
-            // 세션 목록만 반환
+            // Return session list only
             Set<String> sessions = TraceStore.getCompletedSessions();
             Map<String, Object> response = new HashMap<>();
             response.put(KEY_SESSIONS, sessions);
@@ -41,7 +51,7 @@ public class TraceFlowServlet extends HttpServlet {
             resp.getWriter().write(gson.toJson(response));
 
         } else if (ACTION_NEW_SESSIONS.equals(action)) {
-            // 새로운 세션만 반환
+            // Return new sessions only
             Set<String> allSessions = TraceStore.getCompletedSessions();
             Set<String> newSessions = new HashSet<>(allSessions);
             newSessions.removeAll(sentSessions);
@@ -53,12 +63,12 @@ public class TraceFlowServlet extends HttpServlet {
             resp.getWriter().write(gson.toJson(response));
 
         } else if (sessionId != null) {
-            // 특정 세션 데이터 반환
+            // Return specific session data
             List<TraceEntry> entries = TraceStore.getTracesBySession(sessionId);
             resp.getWriter().write(gson.toJson(entries));
 
         } else {
-            // 전체 데이터 (기본)
+            // Return all data (default)
             List<TraceEntry> entries = TraceStore.getTraces();
             resp.getWriter().write(gson.toJson(entries));
         }

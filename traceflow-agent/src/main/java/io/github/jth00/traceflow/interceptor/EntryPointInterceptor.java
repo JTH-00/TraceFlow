@@ -12,14 +12,27 @@ import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.stream.Collectors;
 
+/**
+ * Interceptor for @TraceFlow entry point methods
+ * Starts a new tracing session and captures the root method call
+ */
 public class EntryPointInterceptor {
 
+    /** Maximum number of stack trace lines to capture when an error occurs */
+    private static final int MAX_ERROR_STACKTRACE_LINES = 5;
+
+    /**
+     * Intercept method execution at entry point
+     * @param method Original method being intercepted
+     * @param callable Callable to invoke original method
+     * @return Original method result
+     * @throws Exception Any exception from original method
+     */
     @RuntimeType
     public static Object intercept(@Origin Method method,
-                                   @AllArguments Object[] args,
                                    @SuperCall Callable<?> callable) throws Exception {
 
-        // 새 추적 세션 시작
+        // Start new tracing session
         String sessionId = UUID.randomUUID().toString();
         String rootId = UUID.randomUUID().toString();
 
@@ -27,7 +40,7 @@ public class EntryPointInterceptor {
         TraceContext.enableTracing();
         TraceContext.pushCall(rootId);
 
-        // 파라미터 타입 추출
+        // Extract parameter types
         List<String> parameterTypes = Arrays.stream(method.getParameterTypes())
             .map(Class::getSimpleName)
             .collect(Collectors.toList());
@@ -47,7 +60,7 @@ public class EntryPointInterceptor {
             throw t;
         } finally {
             long duration = System.currentTimeMillis() - startTime;
-            String stackTrace = error != null ? getStackTraceString(error, 5) : null;
+            String stackTrace = error != null ? getStackTraceString(error) : null;
 
             TraceEntry entry = new TraceEntry(
                 rootId,
@@ -78,12 +91,16 @@ public class EntryPointInterceptor {
         return result;
     }
 
-    // 스택 트레이스를 문자열로 변환 (상위 N개만)
-    private static String getStackTraceString(Throwable throwable, int maxLines) {
+    /**
+     * Convert exception stack trace to string (top N lines only)
+     * @param throwable Exception to extract stack trace from
+     * @return Stack trace as string (limited to first {@value #MAX_ERROR_STACKTRACE_LINES} lines)
+     */
+    private static String getStackTraceString(Throwable throwable) {
         if (throwable == null) return null;
 
         StackTraceElement[] elements = throwable.getStackTrace();
-        int limit = Math.min(maxLines, elements.length);
+        int limit = Math.min(MAX_ERROR_STACKTRACE_LINES, elements.length);
 
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < limit; i++) {

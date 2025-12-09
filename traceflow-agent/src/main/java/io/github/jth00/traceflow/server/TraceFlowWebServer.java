@@ -7,12 +7,20 @@ import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.handler.ResourceHandler;
 import org.eclipse.jetty.util.resource.ResourceFactory;
 
+/**
+ * Jetty web server for TraceFlow UI
+ * Serves static resources and REST API for trace data
+ */
 public class TraceFlowWebServer {
     private static Server server;
     private static final String WEB_RESOURCE_DIR = "web";
     private static final String WELCOME_FILE = "index.html";
     private static final String LOGS_PATH = "/logs";
 
+    /**
+     * Start the web server
+     * @param port Port number to listen on
+     */
     public static void start(int port) {
         if (server != null && server.isRunning()) {
             return;
@@ -21,10 +29,10 @@ public class TraceFlowWebServer {
         try {
             server = new Server(port);
 
-            // 정적 리소스 핸들러
+            // Static resource handler
             ResourceHandler resourceHandler = new ResourceHandler();
 
-            // Jetty 12 리소스 설정
+            // Jetty 12 resource configuration
             ResourceFactory resourceFactory = ResourceFactory.of(resourceHandler);
             var webResource = resourceFactory.newClassLoaderResource(WEB_RESOURCE_DIR);
 
@@ -32,15 +40,15 @@ public class TraceFlowWebServer {
             resourceHandler.setDirAllowed(false);
             resourceHandler.setWelcomeFiles(WELCOME_FILE);
 
-            // 서블릿 핸들러
+            // Servlet handler
             ServletContextHandler servletHandler = new ServletContextHandler(ServletContextHandler.SESSIONS);
             servletHandler.setContextPath("/");
             servletHandler.addServlet(TraceFlowServlet.class, LOGS_PATH);
 
-            // 핸들러 조합 (순서 중요!)
+            // Combine handlers
             Handler.Sequence handlers = new Handler.Sequence(
-                resourceHandler,     // 먼저 정적 파일 확인
-                servletHandler       // 없으면 서블릿으로
+                resourceHandler,     // Check static files first
+                servletHandler       // Then servlets
             );
 
             server.setHandler(handlers);

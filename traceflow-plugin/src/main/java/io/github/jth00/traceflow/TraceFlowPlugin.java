@@ -10,6 +10,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * Gradle plugin for TraceFlow agent injection
+ * Automatically injects the Java agent into JavaExec tasks
+ */
 public class TraceFlowPlugin implements Plugin<Project> {
 
     private static final String EXTENSION_NAME = "traceFlow";
@@ -17,7 +21,7 @@ public class TraceFlowPlugin implements Plugin<Project> {
     public void apply(Project project) {
         project.getLogger().lifecycle("[TraceFlow] Plugin Applied to " + project.getName());
 
-        // Extension 생성
+        // Create extension
         TraceFlowExtension ext = project.getExtensions()
             .create(EXTENSION_NAME, TraceFlowExtension.class);
 
@@ -42,11 +46,11 @@ public class TraceFlowPlugin implements Plugin<Project> {
 
             File agentJar = new File(ext.getAgentPath());
 
-            // JavaExec 태스크에 agent 주입
+            // Inject agent into JavaExec tasks
             project.getTasks().withType(JavaExec.class).configureEach(task -> {
-                // bootRun 추가
+                // Support both 'run' and 'bootRun' tasks
                 if (task.getName().equals("run") ||
-                    task.getName().equals("bootRun") ||  // 추가
+                    task.getName().equals("bootRun") ||
                     task.getName().contains("Run")) {
                     configureJavaAgent(project, task, agentJar, ext);
                 }
@@ -54,6 +58,13 @@ public class TraceFlowPlugin implements Plugin<Project> {
         });
     }
 
+    /**
+     * Configure Java agent for a specific task
+     * @param project Gradle project
+     * @param task JavaExec task to configure
+     * @param agentJar Agent JAR file
+     * @param ext TraceFlow extension configuration
+     */
     private void configureJavaAgent(Project project, JavaExec task, File agentJar, TraceFlowExtension ext) {
         task.doFirst(t -> {
             File actualAgentJar = agentJar;
@@ -70,7 +81,7 @@ public class TraceFlowPlugin implements Plugin<Project> {
             JavaExec execTask = (JavaExec) t;
             String agentArg = "-javaagent:" + actualAgentJar.getAbsolutePath();
 
-            // 포트와 패키지 설정
+            // Configure port and package
             String options = String.format("port=%d,package=%s",
                 ext.getWebServerPort(),
                 ext.getPackagePath());
@@ -78,7 +89,7 @@ public class TraceFlowPlugin implements Plugin<Project> {
 
             List<String> newJvmArgs = new ArrayList<>(Objects.requireNonNull(execTask.getJvmArgs()));
 
-            // 중복 추가 방지
+            // Prevent duplicate additions
             if (!newJvmArgs.contains(agentArg)) {
                 newJvmArgs.add(agentArg);
                 project.getLogger().lifecycle("[TraceFlow] Injected agent: " + agentArg);

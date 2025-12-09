@@ -10,11 +10,9 @@ import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.dynamic.DynamicType;
 import net.bytebuddy.implementation.MethodDelegation;
 import net.bytebuddy.matcher.ElementMatcher;
-import net.bytebuddy.matcher.ElementMatchers;
 import net.bytebuddy.utility.JavaModule;
 
 import java.lang.instrument.Instrumentation;
-import java.lang.reflect.Method;
 import java.security.ProtectionDomain;
 import java.util.HashMap;
 import java.util.List;
@@ -22,12 +20,16 @@ import java.util.Map;
 
 import static net.bytebuddy.matcher.ElementMatchers.*;
 
+/**
+ * ByteBuddy agent for instrumenting Java methods with TraceFlow
+ */
 public class TraceFlowAgent {
     private static final int DEFAULT_PORT = 8081;
     private static final String KEY_PORT = "port";
     private static final String KEY_PACKAGE = "package";
     private static final String JETTY_SERVER_CLASS = "org.eclipse.jetty.server.Server";
-    private static final String TRACEFLOW_WEB_SERVER_CLASS = "com.example.traceflow.server.TraceFlowWebServer";
+
+    // Packages to exclude from instrumentation
     private static final List<String> IGNORED_PACKAGE_PREFIXES = List.of(
         "net.bytebuddy", "java.", "javax.", "jakarta.",
         "sun.", "jdk.", "org.springframework",
@@ -35,6 +37,7 @@ public class TraceFlowAgent {
         "io/github/jth00/traceflow"
     );
 
+    // Common methods to exclude from tracing
     private static final List<String> EXCLUDED_METHOD_NAMES = List.of(
         "toString", "hashCode", "equals", "clone",
         "finalize", "getClass", "builder", "build"
@@ -43,6 +46,11 @@ public class TraceFlowAgent {
     private static final String LAMBDA_PREFIX = "lambda$";
     private static final String ACCESSOR_PREFIX = "access$";
 
+    /**
+     * Agent entry point called before main method
+     * @param agentArgs Agent arguments in format: ex)port=8081,package=com.example
+     * @param inst Instrumentation instance provided by JVM
+     */
     public static void premain(String agentArgs, Instrumentation inst) {
         System.out.println("[TraceFlow Agent] Starting instrumentation...");
 
@@ -57,6 +65,11 @@ public class TraceFlowAgent {
         System.out.println("[TraceFlow Agent] Instrumentation installed successfully");
     }
 
+    /**
+     * Parse agent arguments from command line
+     * @param agentArgs Comma-separated key=value pairs
+     * @return Map of parsed arguments
+     */
     private static Map<String, String> parseAgentArgs(String agentArgs) {
         Map<String, String> map = new HashMap<>();
         if (agentArgs == null || agentArgs.isBlank()) return map;
@@ -67,6 +80,11 @@ public class TraceFlowAgent {
         return map;
     }
 
+    /**
+     * Parse port number from string
+     * @param portStr Port number as string
+     * @return Parsed port number or default if invalid
+     */
     private static int parsePort(String portStr) {
         try {
             return Integer.parseInt(portStr);
@@ -76,18 +94,19 @@ public class TraceFlowAgent {
         }
     }
 
+    /**
+     * Start Jetty web server in a separate daemon thread
+     * @param port Port number for web server
+     */
     private static void startWebServer(int port) {
-        // Jetty 서버 시작 (별도 스레드)
         final int finalPort = port;
         Thread serverThread = new Thread(() -> {
             try {
-                // Jetty 클래스 확인
+                // Check if Jetty is available
                 Class.forName(JETTY_SERVER_CLASS);
 
-                // TraceFlowWebServer 시작
-                Class<?> webServerClass = Class.forName(TRACEFLOW_WEB_SERVER_CLASS);
-                Method startMethod = webServerClass.getMethod("start", int.class);
-                startMethod.invoke(null, finalPort);
+                // Start TraceFlowWebServer
+                TraceFlowWebServer.start(finalPort);
 
             } catch (ClassNotFoundException e) {
                 System.out.println("[TraceFlow] Jetty not available, web UI disabled");
@@ -101,13 +120,16 @@ public class TraceFlowAgent {
         System.out.println("[TraceFlow] Web server starting on port " + finalPort);
     }
 
-    // @TraceFlow 진입점 변환기
+    /**
+     * Install transformer for @TraceFlow entry points
+     * Instruments methods annotated with @TraceFlow
+     */
     private static void installEntryPointTransformer(Instrumentation inst) {
         new AgentBuilder.Default()
             .with(AgentBuilder.RedefinitionStrategy.RETRANSFORMATION)
             .ignore(getIgnoreMatcher())
             .type(
-                // @TraceFlow 어노테이션이 붙은 클래스 또는 메서드를 가진 클래스
+                // Classes or methods with @TraceFlow annotation
                 isAnnotatedWith(TraceFlow.class)
                     .or(declaresMethod(isAnnotatedWith(TraceFlow.class)))
             )
@@ -115,7 +137,12 @@ public class TraceFlowAgent {
             .installOn(inst);
     }
 
-    // 모든 애플리케이션 메서드 추적 변환기
+    /**
+     * Install transformer for all application methods
+     * Traces all methods in the specified package
+     * @param inst Instrumentation instance
+     * @param targetPackage Package path to instrument (e.g., "com.example.myapp")
+     */
     private static void installUniversalTransformer(Instrumentation inst, String targetPackage) {
         if (targetPackage == null || targetPackage.isEmpty()) {
             throw new IllegalArgumentException("[TraceFlow Agent] Package path is required. " +
@@ -126,15 +153,19 @@ public class TraceFlowAgent {
             .with(AgentBuilder.RedefinitionStrategy.RETRANSFORMATION)
             .ignore(getIgnoreMatcher())
             .type(
-                // 사용자 애플리케이션 패키지 (설정 가능하도록)
-                nameStartsWith(targetPackage)  // 사용자 코드만
-                    .and(not(nameContains("$$")))  // 프록시 제외
-                    .and(not(nameContains("CGLIB")))  // CGLIB 제외
+                // User application package
+                nameStartsWith(targetPackage)
+                    .and(not(nameContains("$$"))) // Exclude proxies
+                    .and(not(nameContains("CGLIB"))) // Exclude CGLIB
             )
             .transform(new UniversalMethodTransformer())
             .installOn(inst);
     }
 
+    /**
+     * Create matcher for packages to ignore
+     * @return ElementMatcher for ignored packages
+     */
     private static ElementMatcher<TypeDescription> getIgnoreMatcher() {
         ElementMatcher.Junction<TypeDescription> matcher = none();
         for (String prefix : IGNORED_PACKAGE_PREFIXES) {
@@ -143,7 +174,9 @@ public class TraceFlowAgent {
         return matcher;
     }
 
-    // @TraceFlow 진입점 변환기
+    /**
+     * Transformer for @TraceFlow entry point methods
+     */
     static class EntryPointTransformer implements AgentBuilder.Transformer {
         @Override
         public DynamicType.Builder<?> transform(DynamicType.Builder<?> builder,
@@ -157,7 +190,7 @@ public class TraceFlowAgent {
             ElementMatcher<MethodDescription> methodMatcher;
 
             if (classHasTraceFlow) {
-                // 클래스 레벨 @TraceFlow: 모든 public 메서드가 진입점
+                // Class-level @TraceFlow: all public methods are entry points
                 methodMatcher = isPublic()
                     .and(not(isDeclaredBy(Object.class)))
                     .and(not(isConstructor()))
@@ -165,7 +198,7 @@ public class TraceFlowAgent {
                     .and(not(isSynthetic()))
                     .and(not(isAbstract()));
             } else {
-                // 메서드 레벨 @TraceFlow: 해당 메서드만 진입점
+                // Method-level @TraceFlow: only annotated methods
                 methodMatcher = isAnnotatedWith(TraceFlow.class)
                     .and(not(isDeclaredBy(Object.class)))
                     .and(isPublic());
@@ -176,7 +209,9 @@ public class TraceFlowAgent {
         }
     }
 
-    // 모든 메서드 추적 변환기 (추적이 활성화되었을 때만 동작)
+    /**
+     * Transformer for all methods (active only during tracing)
+     */
     static class UniversalMethodTransformer implements AgentBuilder.Transformer {
         @Override
         public DynamicType.Builder<?> transform(DynamicType.Builder<?> builder,
@@ -184,13 +219,13 @@ public class TraceFlowAgent {
                                                 ClassLoader classLoader,
                                                 JavaModule javaModule,
                                                 ProtectionDomain protectionDomain) {
-            // auxiliary 클래스는 변환하지 않음
+            // Skip auxiliary classes
             if (typeDescription.getName().contains("$auxiliary$") ||
                 typeDescription.getName().contains("$$")) {
                 return builder;
             }
 
-            // 모든 메서드 추적 (private, protected 포함)
+            //4 Match all methods (including private, protected)
             ElementMatcher.Junction<MethodDescription> methodMatcher =
                 not(isConstructor())
                     .and(not(isStatic()))

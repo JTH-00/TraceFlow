@@ -4,6 +4,10 @@ import io.github.jth00.traceflow.enums.MethodTypeEnum;
 
 import java.util.List;
 
+/**
+ * Represents a single method execution trace entry
+ * Contains all information about method call including timing, parameters, and errors
+ */
 public class TraceEntry {
     private final String id;
     private final String parentId;
