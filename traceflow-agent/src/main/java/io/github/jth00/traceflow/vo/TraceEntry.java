@@ -18,8 +18,8 @@ public class TraceEntry {
     private final List<String> parameterTypes;
     private final long startTime;
     private final long duration;
-    private final boolean async;
-    private final boolean error;
+    private final boolean isAsync;
+    private final boolean isError;
     private final String errorType;
     private final String errorMessage;
     private final String stackTrace;
@@ -28,8 +28,8 @@ public class TraceEntry {
     public TraceEntry(String id, String parentId, String sessionId,
                       String className, String methodName, String returnType,
                       List<String> parameterTypes,
-                      long startTime, long duration, boolean async,
-                      boolean error, String errorType, String errorMessage,
+                      long startTime, long duration, boolean isAsync,
+                      boolean isError, String errorType, String errorMessage,
                       String stackTrace,
                       MethodTypeEnum methodType) {
         this.id = id;
@@ -41,8 +41,8 @@ public class TraceEntry {
         this.parameterTypes = parameterTypes;
         this.startTime = startTime;
         this.duration = duration;
-        this.async = async;
-        this.error = error;
+        this.isAsync = isAsync;
+        this.isError = isError;
         this.errorType = errorType;
         this.errorMessage = errorMessage;
         this.stackTrace = stackTrace;
@@ -51,4 +51,8 @@ public class TraceEntry {
 
     // Getters
     public String getSessionId() { return sessionId; }
+
+    public boolean isAsync() {
+        return isAsync;
+    }
 }

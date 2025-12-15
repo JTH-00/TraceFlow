@@ -4,17 +4,21 @@ import io.github.jth00.traceflow.store.TraceStore;
 import io.github.jth00.traceflow.vo.TraceEntry;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Manages tracing context for method execution
- * - Enables/disables tracing state
- * - Isolates data by session
- * - Manages thread-local call stacks
+ * Simplified version with immediate cleanup
+ * - No TTL, no touch(), no scheduled cleanup
+ * - Sessions with async methods are retained
+ * - Sessions without async are removed immediately
+ * - Max 50 sessions enforced at entry
  */
 public class TraceContext {
+
+    // Maximum number of sessions to keep in memory
+    private static final int MAX_SESSIONS = 50;
 
     // Tracing enabled state (ThreadLocal)
     private static final ThreadLocal<Boolean> tracingEnabled = ThreadLocal.withInitial(() -> false);
@@ -29,19 +33,21 @@ public class TraceContext {
     private static final Map<String, SessionData> sessions = new ConcurrentHashMap<>();
 
     /**
-     * Session data class
+     * Session data class (simplified)
      */
     private static class SessionData {
         final String sessionId;
         final List<TraceEntry> entries;
         final AtomicBoolean active;
-        final long startTime;
 
         SessionData(String sessionId) {
             this.sessionId = sessionId;
             this.entries = new CopyOnWriteArrayList<>();
             this.active = new AtomicBoolean(true);
-            this.startTime = System.currentTimeMillis();
+        }
+
+        boolean hasAsyncMethods() {
+            return entries.stream().anyMatch(TraceEntry::isAsync);
         }
     }
 
@@ -83,14 +89,28 @@ public class TraceContext {
 
     /**
      * Start a new tracing session
+     * Enforces max session limit by removing oldest inactive session
      * @param sessionId Unique session identifier
      */
     public static void startNewSession(String sessionId) {
+        // Enforce max sessions limit
+        if (sessions.size() >= MAX_SESSIONS) {
+            // Find and remove the oldest inactive session
+            sessions.entrySet().stream()
+                .filter(e -> !e.getValue().active.get())
+                .findFirst()
+                .ifPresent(e -> {
+                    sessions.remove(e.getKey());
+                    System.out.println("[TraceContext] Removed oldest inactive session to make room");
+                });
+        }
+
         currentSessionId.set(sessionId);
         sessions.put(sessionId, new SessionData(sessionId));
         callStack.set(new ArrayDeque<>());
 
-        System.out.println("[TraceContext] New session started: " + sessionId);
+        System.out.println("[TraceContext] New session started: " + sessionId +
+            " (total sessions: " + sessions.size() + ")");
     }
 
     /**
@@ -157,6 +177,9 @@ public class TraceContext {
 
     /**
      * Flush session data to the store
+     * Strategy:
+     * - If session has async methods: keep in memory (for async completion)
+     * - If session has no async methods: remove immediately (save memory)
      */
     public static void flush() {
         String sessionId = currentSessionId.get();
@@ -166,14 +189,20 @@ public class TraceContext {
                 // Save to store
                 TraceStore.addTraces(new ArrayList<>(session.entries));
 
-                // Deactivate session
-                session.active.set(false);
+                // Check if session has async methods
+                boolean hasAsync = session.hasAsyncMethods();
 
-                System.out.println("[TraceContext] Flushed " + session.entries.size() +
-                    " entries for session: " + sessionId);
-
-                // Schedule cleanup after some time (memory management)
-                scheduleSessionCleanup(sessionId);
+                if (hasAsync) {
+                    // Has async methods → Keep in memory for async completion
+                    session.active.set(false);
+                    System.out.println("[TraceContext] Flushed " + session.entries.size() +
+                        " entries (has async, keeping session): " + sessionId);
+                } else {
+                    // No async methods → Remove immediately to save memory
+                    sessions.remove(sessionId);
+                    System.out.println("[TraceContext] Flushed " + session.entries.size() +
+                        " entries (sync only, removed immediately): " + sessionId);
+                }
             }
         }
 
@@ -188,21 +217,5 @@ public class TraceContext {
         tracingEnabled.set(false);
         currentSessionId.set(null);
         callStack.set(new ArrayDeque<>());
-    }
-
-    /**
-     * Schedule session cleanup (remove after 5 minutes)
-     * @param sessionId Session ID to cleanup
-     */
-    private static void scheduleSessionCleanup(String sessionId) {
-        new Thread(() -> {
-            try {
-                Thread.sleep(5 * 60 * 1000); // Wait 5 minutes
-                sessions.remove(sessionId);
-                System.out.println("[TraceContext] Session cleaned up: " + sessionId);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        }).start();
     }
 }
