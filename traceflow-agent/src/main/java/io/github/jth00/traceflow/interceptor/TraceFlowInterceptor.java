@@ -104,7 +104,7 @@ public class TraceFlowInterceptor {
                 result = future.whenComplete((r, t) -> {
                     if (TraceContext.isTracingEnabledForSession(capturedSessionId)) {
                         long duration = System.currentTimeMillis() - startTime;
-                        MethodTypeEnum methodType = classifyMethod(method);
+                        MethodTypeEnum methodType = classifyMethod(method, t != null);
                         String stackTrace = t != null ? getStackTraceString(t) : null;
 
                         TraceEntry asyncEntry = new TraceEntry(
@@ -136,7 +136,7 @@ public class TraceFlowInterceptor {
         } finally {
             if (!isAsync) {
                 long duration = System.currentTimeMillis() - startTime;
-                MethodTypeEnum methodType = classifyMethod(method);
+                MethodTypeEnum methodType = classifyMethod(method, error != null);
                 String stackTrace = error != null ? getStackTraceString(error) : null;
 
                 TraceEntry entry = new TraceEntry(
@@ -173,9 +173,17 @@ public class TraceFlowInterceptor {
      * @param method Method to classify
      * @return Method type enum
      */
-    private static MethodTypeEnum classifyMethod(Method method) {
+    private static MethodTypeEnum classifyMethod(Method method, boolean hasError) {
+        if (hasError) {
+            return MethodTypeEnum.ERROR;
+        }
+
         String name = method.getName();
         int paramCount = method.getParameterCount();
+
+        if (name.startsWith("get") && paramCount == 0) {
+            return MethodTypeEnum.GETTER;
+        }
 
         if ((name.startsWith("get") || name.startsWith("is")) && paramCount == 0) {
             return MethodTypeEnum.GETTER;

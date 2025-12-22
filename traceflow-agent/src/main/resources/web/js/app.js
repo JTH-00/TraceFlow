@@ -84,7 +84,7 @@ function openModal(nodeData) {
         </div>
     `;
 
-    if (nodeData.error) {
+    if (nodeData.isError) {
         html += `
             <div class="error-section">
                 <div class="modal-row">
@@ -517,9 +517,12 @@ function renderGraph(rootNode) {
         .enter().append("g")
         .attr("class", d => {
             let classes = "node";
-            if (d.data.error) classes += " error";
-
             const type = d.data.methodType || 'BUSINESS';
+
+            if (type === 'ERROR'|| d.data.isError) {
+                classes += " error";
+            }
+
             classes += " " + type.toLowerCase().replace('_', '-');
 
             // Mark merged nodes

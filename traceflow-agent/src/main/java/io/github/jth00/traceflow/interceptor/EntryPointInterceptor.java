@@ -48,7 +48,7 @@ public class EntryPointInterceptor {
         long startTime = System.currentTimeMillis();
         Object result = null;
         Throwable error = null;
-
+        MethodTypeEnum methodType = MethodTypeEnum.ENTRY_POINT;
         try {
             System.out.println("[EntryPoint] Starting trace: " +
                 method.getDeclaringClass().getSimpleName() + "." + method.getName());
@@ -57,6 +57,7 @@ public class EntryPointInterceptor {
 
         } catch (Throwable t) {
             error = t;
+            methodType = MethodTypeEnum.ERROR;
             throw t;
         } finally {
             long duration = System.currentTimeMillis() - startTime;
@@ -77,7 +78,7 @@ public class EntryPointInterceptor {
                 error != null ? error.getClass().getSimpleName() : null,
                 error != null ? error.getMessage() : null,
                 stackTrace,
-                MethodTypeEnum.ENTRY_POINT
+                methodType
             );
 
             TraceContext.addEntry(entry);
