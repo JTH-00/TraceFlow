@@ -51,3 +51,6 @@ bin/
 
 ### META-INF ###
 **/src/main/resources/META-INF/
+/gradle.properties
+/traceflow-plugin/publish.gradle
+/publish.gradle

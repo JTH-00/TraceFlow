@@ -1,17 +1,7 @@
 plugins {
 	id 'java-gradle-plugin'
-	id 'maven-publish'
 }
 
 dependencies {
 	implementation gradleApi()
-}
-
-gradlePlugin {
-	plugins {
-		traceFlow {
-			id = 'io.github.jth00.traceflow'
-			implementationClass = 'io.github.jth00.traceflow.TraceFlowPlugin'
-		}
-	}
 }

@@ -1,18 +1,24 @@
+// ============================================
+// Root build.gradle
+// ============================================
+
 plugins {
 	id 'java'
 }
 
 allprojects {
-	group = 'com.example.traceflow'
+	group = 'io.github.jth-00'
 	version = '1.0.0'
-
-	repositories {
-		mavenCentral()
-	}
 }
 
 subprojects {
 	apply plugin: 'java'
+
 	sourceCompatibility = '17'
 	targetCompatibility = '17'
+
+	java {
+		withJavadocJar()
+		withSourcesJar()
+	}
 }
