@@ -22,6 +22,7 @@ public class TraceFlowPlugin implements Plugin<Project> {
     private static final String AGENT_CONFIGURATION = "traceflowAgent";
     private static final String AGENT_GROUP = "io.github.jth-00";
     private static final String AGENT_ARTIFACT = "traceflow-agent";
+    private static final String ANNOTATIONS_ARTIFACT = "traceflow-annotations";
 
     @Override
     public void apply(Project project) {
@@ -32,9 +33,10 @@ public class TraceFlowPlugin implements Plugin<Project> {
             .create(EXTENSION_NAME, TraceFlowExtension.class);
 
         // Create configuration for agent dependency
-        Configuration agentConfig = project.getConfigurations().maybeCreate(AGENT_CONFIGURATION);
-        agentConfig.setDescription("TraceFlow agent JAR for bytecode instrumentation");
-        agentConfig.setTransitive(false); // Only get the agent JAR itself
+        Configuration agentConfig = configureAgent(project);
+
+        // Add annotations dependency
+        configureAnnotations(project);
 
         project.afterEvaluate(p -> {
             if (!ext.isAutoInject()) {
@@ -52,7 +54,7 @@ public class TraceFlowPlugin implements Plugin<Project> {
             }
 
             // Resolve agent JAR from Maven Central
-            File agentJar = resolveAgentFromMavenCentral(project, agentConfig);
+            File agentJar = resolveAgent(project, agentConfig);
 
             // Inject agent into JavaExec tasks
             project.getTasks().withType(JavaExec.class).configureEach(task -> {
@@ -67,10 +69,51 @@ public class TraceFlowPlugin implements Plugin<Project> {
     }
 
     /**
+     * Configure TraceFlow Java agent dependency
+     * This configuration is used internally by the plugin to resolve
+     * the TraceFlow Java agent JAR and inject it via -javaagent.
+     */
+    private Configuration configureAgent(Project project) {
+        Configuration agentConfig =
+            project.getConfigurations().maybeCreate(AGENT_CONFIGURATION);
+
+        agentConfig.setDescription("TraceFlow agent JAR for bytecode instrumentation");
+        agentConfig.setTransitive(false);
+        agentConfig.setCanBeResolved(true);
+        agentConfig.setCanBeConsumed(false);
+
+        return agentConfig;
+    }
+
+    /**
+     * Add traceflow-annotations dependency
+     * Required for @TraceFlow annotation
+     * Only for Java projects
+     */
+    private void configureAnnotations(Project project) {
+        Configuration annotations = project.getConfigurations().maybeCreate("traceflowAnnotations");
+
+        annotations.setCanBeResolved(true);
+        annotations.setCanBeConsumed(false);
+
+        project.getPlugins().withId("java", plugin -> {
+            project.getConfigurations()
+                .getByName("compileOnly")
+                .extendsFrom(annotations);
+        });
+
+        String version = getPluginVersion(project);
+        project.getDependencies().add(
+            "traceflowAnnotations",
+            String.format("%s:%s:%s", AGENT_GROUP, ANNOTATIONS_ARTIFACT, version)
+        );
+    }
+
+    /**
      * Resolve agent JAR from Maven Central
      * Uses the same version as the plugin
      */
-    private File resolveAgentFromMavenCentral(Project project, Configuration agentConfig) {
+    private File resolveAgent(Project project, Configuration agentConfig) {
         try {
             // Get plugin version
             String version = getPluginVersion(project);
