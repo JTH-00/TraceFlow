@@ -1,6 +1,6 @@
 package io.github.jth00.traceflow.agent;
 
-import io.github.jth00.traceflow.anotations.TraceFlow;
+import io.github.jth00.traceflow.annotations.TraceFlow;
 import io.github.jth00.traceflow.interceptor.EntryPointInterceptor;
 import io.github.jth00.traceflow.interceptor.TraceFlowInterceptor;
 import io.github.jth00.traceflow.server.TraceFlowWebServer;

@@ -89,7 +89,7 @@ public class TraceContext {
 
     /**
      * Start a new tracing session
-     * Enforces max session limit by removing oldest inactive session
+     * Enforces max session limit by removing the oldest inactive session
      * @param sessionId Unique session identifier
      */
     public static void startNewSession(String sessionId) {
@@ -193,12 +193,12 @@ public class TraceContext {
                 boolean hasAsync = session.hasAsyncMethods();
 
                 if (hasAsync) {
-                    // Has async methods → Keep in memory for async completion
+                    // Has async methods -> Keep in memory for async completion
                     session.active.set(false);
                     System.out.println("[TraceContext] Flushed " + session.entries.size() +
                         " entries (has async, keeping session): " + sessionId);
                 } else {
-                    // No async methods → Remove immediately to save memory
+                    // No async methods -> Remove immediately to save memory
                     sessions.remove(sessionId);
                     System.out.println("[TraceContext] Flushed " + session.entries.size() +
                         " entries (sync only, removed immediately): " + sessionId);

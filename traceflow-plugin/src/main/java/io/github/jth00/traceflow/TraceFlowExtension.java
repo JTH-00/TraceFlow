@@ -9,7 +9,6 @@ public class TraceFlowExtension {
     private boolean autoInject = true;
     private int webServerPort = 8081;
     private String packagePath;
-    private String agentPath;
 
     /**
      * Default constructor required by Gradle
@@ -63,21 +62,5 @@ public class TraceFlowExtension {
      */
     public void setPackagePath(String pkg) {
         this.packagePath = pkg;
-    }
-
-    /**
-     * Get agent JAR path
-     * @return Path to agent JAR file
-     */
-    public String getAgentPath() {
-        return agentPath;
-    }
-
-    /**
-     * Set agent JAR path
-     * @param agentPath Path to agent JAR file
-     */
-    public void setAgentPath(String agentPath) {
-        this.agentPath = agentPath;
     }
 }
