@@ -151,12 +151,7 @@ public class TraceFlowAgent {
         new AgentBuilder.Default()
             .with(AgentBuilder.RedefinitionStrategy.RETRANSFORMATION)
             .ignore(getIgnoreMatcher())
-            .type(
-                // User application package
-                nameStartsWith(targetPackage)
-                    .and(not(nameContains("$$"))) // Exclude proxies
-                    .and(not(nameContains("CGLIB"))) // Exclude CGLIB
-            )
+            .type(nameStartsWith(targetPackage))
             .transform(new UniversalMethodTransformer())
             .installOn(inst);
     }
@@ -218,9 +213,15 @@ public class TraceFlowAgent {
                                                 ClassLoader classLoader,
                                                 JavaModule javaModule,
                                                 ProtectionDomain protectionDomain) {
-            // Skip auxiliary classes
+
+            // Skip auxiliary class and proxy classes
             if (typeDescription.getName().contains("$auxiliary$") ||
-                typeDescription.getName().contains("$$"))  {
+                typeDescription.getName().contains("$$EnhancerBy") ||
+                typeDescription.getName().contains("$$FastClassBy") ||
+                typeDescription.getName().contains("$$Hibernate") ||
+                typeDescription.getName().contains("$$MockitoMock") ||
+                typeDescription.getName().contains("$$Proxy") ||
+                typeDescription.getName().contains("Builder")) {
                 return builder;
             }
 
