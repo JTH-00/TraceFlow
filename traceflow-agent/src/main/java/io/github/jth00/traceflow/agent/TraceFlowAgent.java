@@ -39,8 +39,7 @@ public class TraceFlowAgent {
 
     // Common methods to exclude from tracing
     private static final List<String> EXCLUDED_METHOD_NAMES = List.of(
-        "toString", "hashCode", "equals", "clone",
-        "finalize", "getClass", "builder", "build"
+        "builder", "build"
     );
 
     private static final String LAMBDA_PREFIX = "lambda$";
@@ -228,6 +227,7 @@ public class TraceFlowAgent {
             //4 Match all methods (including private, protected)
             ElementMatcher.Junction<MethodDescription> methodMatcher =
                 not(isConstructor())
+                    .and(not(isDeclaredBy(Object.class)))
                     .and(not(isStatic()))
                     .and(not(isSynthetic()))
                     .and(not(isBridge()))
