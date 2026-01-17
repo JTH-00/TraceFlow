@@ -221,7 +221,7 @@ public class TraceFlowAgent {
                                                 ProtectionDomain protectionDomain) {
             // Skip auxiliary classes
             if (typeDescription.getName().contains("$auxiliary$") ||
-                typeDescription.getName().contains("$$")) {
+                typeDescription.getName().contains("$$"))  {
                 return builder;
             }
 
@@ -233,7 +233,7 @@ public class TraceFlowAgent {
                     .and(not(isBridge()))
                     .and(not(isNative()))
                     .and(not(isAbstract()))
-                    .and(not(isDeclaredBy(nameContains("$"))));
+                    .and(not(isDeclaredBy(nameMatches(".*\\$\\d+$"))));
 
             for (String name : EXCLUDED_METHOD_NAMES) {
                 methodMatcher = methodMatcher.and(not(named(name)));
