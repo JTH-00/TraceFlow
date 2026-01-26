@@ -20,17 +20,33 @@ JAVA 어플리케이션 내의 메서드 호출 흐름도를 실시간 추적하
 - 메서드 흐름도의 시각화 및 상세 정보 확인
 - UI 조작 및 Getter, Setter, 메서드 동일 계층 내의 중복 메서드 통합 필터링
 
-[사진 1 첨부예정 - 트리구조]
+
+### 첨부 사진
+<details>
+  <summary> 첨부 사진</summary>
+
+  ### - 콜 트리 (필터 on / off)
+  
+  <img src="images/Call_Tree.png" width="1200">
+
+  <img src="images/Call_Tree_Filter.png" width="1200">
 
 
-[사진 2 첨부예정 - 클릭 시 반환값]
+  ### - 메서드 디테일
+
+  <img src="images/Method_Detail.png" width="1200">
+
+  <img src="images/Method_Detail_Error.png" width="1200">
+
+</details>
+
 
 
 ## 2.사용방법
 #### - 초기 설정
 ```
 plugins {
-    id 'io.github.jth-00.traceflow' version '1.0.2'
+    id 'io.github.jth-00.traceflow' version '1.0.3'
 }
 
 traceFlow {
@@ -76,9 +92,7 @@ traceFlow {
    - static (isStatic())
    - 컴파일러로 생성된 코드 (isSynthetic())
    - 추상 클래스 (isAbstract())
-   
-   // toString(), equals(Object obj), hashCode(), getClass() 등의 제외를 위해
-   - Object.class에 선언된 메서드들 (isDeclaredBy(Object.class))
+   - Object.class에 선언된 메서드들 (isDeclaredBy(Object.class)) // "toString", "hashCode", "equals", "clone" 등
 ```
 
 </details>
@@ -88,13 +102,8 @@ traceFlow {
 
 #### 제외되는 특정 단어를 포함하는 메서드
     [
-        "$auxiliary$" // Bytebuddy의 보조클래스
-        "$$", "CGLIB" // 프레임워크가 생성한 프록시/람다 클래스 제외
-        "builder", "build" //빌더 패턴
-        
-        // Object.class에 선언된 메서드들, not(isDeclaredBy(Object.class))로 따로 뺄 예정
-        "toString", "hashCode", "equals", "clone",
-        "finalize", "getClass"
+        "$auxiliary$", "$$EnhancerBy", "$$FastClassBy", "$$Hibernate", "$$MockitoMock", "$$Proxy" // 런타임에 프레임워크(ByteBuddy, Proxy, Mockito 등)가 생성한 클래스 제외
+        "builder" // 빌더 패턴에서 사용되는 보조 메서드 제외
     ]
 
 #### 제외되는 특정 단어로 시작하는 메서드
@@ -107,15 +116,14 @@ traceFlow {
 #### 제외대상
 
 ```
+   - Object.class에 선언된 메서드들 (isDeclaredBy(Object.class)) // "toString", "hashCode", "equals", "clone" 등
    - 생성자 (isConstructor())
    - static (isStatic())
    - 컴파일러로 생성된 코드 (isSynthetic())
    - 추상 클래스 (isAbstract())
    - 컴파일러가 생성하는 브릿지 메서드 (isBridge())
    - Java가 아닌 다른 언어로 구현된 메서드 (isNative())
-   
-   // 람다와 프록시등의 비지니스 로직과 관련이없는 메서드를 제외하기위해 추가하였지만, Inner 클래스도 제외되기에 수정될 예정
-   - "$"를 포함하는 메서드 (isDeclaredBy(nameContains("$")))
+   - 익명 메서드 (isDeclaredBy(nameMatches(".*\\$\\d+$"))) 
 ```
 
 </details>
