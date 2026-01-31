@@ -284,7 +284,7 @@ function updateFilterCounts(data) {
         }
     });
 
-    // Count duplicates - merge recursively first, then count how many were merged
+    // Count duplicates
     const merged = mergeDuplicatesRecursive(data);
     duplicateCount = data.length - merged.length;
 
@@ -292,6 +292,7 @@ function updateFilterCounts(data) {
     document.getElementById('count-duplicates').textContent = duplicateCount;
 }
 
+// ========== Filter ==========
 function applyFilters() {
     if (!currentData) return;
 
@@ -300,43 +301,54 @@ function applyFilters() {
 
     let filteredData = [...currentData];
 
-    // Step 1: Apply duplicate merge filter FIRST (recursive)
+    // 1. Apply Getter/Setter filter
+    if (!filters.showAccessors) {
+        const excludeIds = new Set();
+
+        // Recursively collect all descendant methods of getter/setter nodes
+        function collectDescendants(entryId) {
+            excludeIds.add(entryId);
+            filteredData.forEach(entry => {
+                if (entry.parentId === entryId && !excludeIds.has(entry.id)) {
+                    collectDescendants(entry.id);
+                }
+            });
+        }
+
+        // Start from getter/setter methods and collect entire subtree
+        filteredData.forEach(entry => {
+            if (entry.methodType === 'GETTER' || entry.methodType === 'SETTER') {
+                collectDescendants(entry.id);
+            }
+        });
+
+        // Filtering excluded methods
+        filteredData = filteredData.filter(entry => !excludeIds.has(entry.id));
+    }
+
+    // 2. Apply merge duplicates
     if (filters.mergeDuplicates) {
         filteredData = mergeDuplicatesRecursive(filteredData);
     }
 
-    // Step 2: Apply Getter/Setter filter AFTER merging
-    filteredData = filteredData.filter(entry => {
-        const type = entry.methodType || 'BUSINESS';
-
-        if (type === 'GETTER' || type === 'SETTER') {
-            return filters.showAccessors;
-        }
-
-        return true;
-    });
-
     document.getElementById('filter-stats').textContent =
         `Showing: ${filteredData.length} / Total: ${currentData.length}`;
 
-    renderGraph(buildTree(filteredData));
+    // Pass original data for parent lookup
+    renderGraph(buildTree(filteredData, currentData));
 }
 
-// Merge duplicate methods recursively at all levels
+// ========== Merge Logic ==========
 function mergeDuplicatesRecursive(entries) {
     if (!entries || entries.length === 0) return [];
 
-    // Build tree first
     const tree = buildTreeForMerge(entries);
-
-    // Recursively merge tree
     const mergedTree = mergeTreeRecursively(tree);
+    const flattened = flattenTree(mergedTree);
 
-    // Flatten back to entries
-    return flattenTree(mergedTree);
+    return flattened;
 }
 
-// Build tree structure for merging
 function buildTreeForMerge(entries) {
     const nodeMap = {};
     const roots = [];
@@ -356,78 +368,48 @@ function buildTreeForMerge(entries) {
     return roots;
 }
 
-// Recursively merge duplicate methods in tree
 function mergeTreeRecursively(nodes) {
-    if (!nodes || nodes.length === 0) return [];
-
     const methodMap = {};
 
     nodes.forEach(node => {
         const key = `${node.className}.${node.methodName}`;
 
         if (!methodMap[key]) {
-            // First occurrence
             methodMap[key] = {
                 ...node,
-                originalId: node.id,
+                originalId: node.originalId ?? node.id,
                 mergedIds: [node.id],
                 mergedCount: 1,
                 totalDuration: node.duration,
                 children: node.children || []
             };
         } else {
-            // Duplicate found - merge
             methodMap[key].mergedIds.push(node.id);
             methodMap[key].mergedCount++;
             methodMap[key].totalDuration += node.duration;
-
-            // Merge children
-            methodMap[key].children = methodMap[key].children.concat(node.children || []);
+            methodMap[key].children.push(...(node.children || []));
         }
     });
 
-    // Recursively merge children for each merged node
-    const merged = Object.values(methodMap).map(entry => {
-        if (entry.children && entry.children.length > 0) {
-            entry.children = mergeTreeRecursively(entry.children);
-        }
-        // Update duration to total
-        entry.duration = entry.totalDuration;
-        return entry;
+    return Object.values(methodMap).map(node => {
+        node.children = mergeTreeRecursively(node.children || []);
+        node.duration = node.totalDuration;
+        return node;
     });
-
-    return merged;
 }
 
-// Flatten tree back to entry list
 function flattenTree(nodes, parentId = null) {
-    if (!nodes || nodes.length === 0) return [];
-
     const result = [];
-
     nodes.forEach(node => {
-        const entry = {
-            ...node,
-            parentId: parentId
-        };
-
-        // Remove children from entry (will be added separately)
-        const children = entry.children;
-        delete entry.children;
-
-        result.push(entry);
-
-        if (children && children.length > 0) {
-            const childEntries = flattenTree(children, node.id);
-            result.push(...childEntries);
-        }
+        const { children, ...rest } = node;
+        result.push({ ...rest, parentId });
+        result.push(...flattenTree(children || [], node.id));
     });
-
     return result;
 }
 
-// ========== Graph Functions ==========
-function buildTree(entries) {
+// ========== Build Tree ==========
+function buildTree(entries, originalData) {
     if (!entries || entries.length === 0) return null;
 
     const nodeMap = {};
@@ -445,20 +427,37 @@ function buildTree(entries) {
     });
 
     entries.forEach(entry => {
-        if (entry.parentId && nodeMap[entry.parentId]) {
-            const parent = nodeMap[entry.parentId];
-            // Prevent duplicate additions
-            if (!parent.children.some(child => child.id === entry.id)) {
-                parent.children.push(nodeMap[entry.id]);
+        let pid = entry.parentId;
+        let parent = null;
+
+        while (pid) {
+            if (nodeMap[pid]) {
+                parent = nodeMap[pid];
+                break;
             }
+            const origin = originalData.find(entry => entry.id === pid);
+            pid = origin ? origin.parentId : null;
+        }
+
+        if (parent) {
+            parent.children.push(nodeMap[entry.id]);
         } else {
-            if (!roots.some(root => root.id === entry.id)) {
-                roots.push(nodeMap[entry.id]);
-            }
+            roots.push(nodeMap[entry.id]);
         }
     });
 
-    return roots.length > 0 ? roots[0] : null;
+    // Handle edge case where multiple root nodes exist
+    // D3.js tree layout requires exactly one root, so wrap all roots under a synthetic parent no
+    if (roots.length === 1) return roots[0];
+
+    return {
+        id: '__ROOT__',
+        className: 'TraceFlow',
+        methodName: 'ROOT',
+        methodType: 'ROOT',
+        duration: roots.reduce((sum, root) => sum + (root.duration || 0), 0),
+        children: roots
+    };
 }
 
 function renderGraph(rootNode) {
