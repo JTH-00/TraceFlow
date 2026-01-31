@@ -367,6 +367,11 @@ svg.modal-open {
     align-items: center;
 }
 
+.modal-value.stack-trace {
+    display: block;
+    align-items: unset;
+}
+
 .param-list {
     list-style: none;
     padding: 0;
