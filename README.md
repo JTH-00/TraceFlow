@@ -46,7 +46,7 @@ JAVA 어플리케이션 내의 메서드 호출 흐름도를 실시간 추적하
 #### - 초기 설정
 ```
 plugins {
-    id 'io.github.jth-00.traceflow' version '1.0.3'
+    id 'io.github.jth-00.traceflow' version '1.0.4'
 }
 
 traceFlow {
